@@ -1,0 +1,160 @@
+/* ==========================================================================
+   Barcode & Student ID Cards — Premium Academic Credential Badge
+   ========================================================================== */
+
+.student-id-card {
+  width: 330px;
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: var(--radius-2xl);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 12px 32px -8px rgba(15, 23, 42, 0.12),
+              0 2px 8px -2px rgba(15, 23, 42, 0.06);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  margin: 0 auto;
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+}
+
+.student-id-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.18),
+              0 4px 12px -2px rgba(15, 23, 42, 0.08);
+}
+
+/* Holographic / Gradient header accent strip */
+.student-id-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: linear-gradient(90deg, #0ea5e9, #38bdf8, #8b5cf6, #f97316);
+}
+
+.id-card-header {
+  margin-bottom: var(--space-3);
+  width: 100%;
+}
+
+.id-card-institution {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.id-card-dept {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.id-card-avatar {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  color: #0284c7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.85rem;
+  font-weight: 800;
+  margin: var(--space-2) auto var(--space-3);
+  border: 4px solid #ffffff;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.18);
+}
+
+.id-card-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 3px;
+  letter-spacing: -0.02em;
+}
+
+.id-card-reg {
+  font-size: 0.85rem;
+  font-family: var(--font-family-mono);
+  color: #475569;
+  font-weight: 600;
+  background-color: #f1f5f9;
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--radius-full);
+  display: inline-block;
+  margin-bottom: var(--space-3);
+  border: 1px solid #e2e8f0;
+}
+
+.id-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-bottom: var(--space-4);
+  font-weight: 500;
+}
+
+.id-card-barcode-container {
+  width: 100%;
+  background-color: #ffffff;
+  padding: 0.75rem 0.5rem;
+  border-radius: var(--radius-lg);
+  border: 1px dashed #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.id-card-barcode-img {
+  max-width: 100%;
+  height: 64px;
+  object-fit: contain;
+}
+
+.id-card-barcode-val {
+  font-family: var(--font-family-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  color: #334155;
+  margin-top: 6px;
+  font-weight: 600;
+}
+
+/* Printable Sheet View */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .printable-area, .printable-area * {
+    visibility: visible;
+  }
+  .printable-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15mm;
+    padding: 10mm;
+  }
+  .student-id-card {
+    page-break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #94a3b8 !important;
+  }
+}

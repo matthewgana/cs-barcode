@@ -1,0 +1,61 @@
+/* ==========================================================================
+   App Shell & Main Layout — Premium Edition
+   ========================================================================== */
+
+.app-layout,
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--color-bg);
+  position: relative;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
+  background-color: var(--color-bg);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle mesh dot pattern for the main content area */
+.app-main::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(circle, var(--dot-color, rgba(100, 116, 139, 0.1)) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+[data-theme="dark"] .app-main::before {
+  --dot-color: rgba(56, 189, 248, 0.06);
+}
+
+.page-content {
+  flex: 1;
+  padding: 0;
+  overflow-y: auto;
+  position: relative;
+  z-index: 1;
+}
+
+/* Page Container */
+.page-container,
+.page-wrapper {
+  max-width: var(--page-max-width);
+  padding: var(--space-6);
+  margin: 0 auto;
+  width: 100%;
+  animation: fadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

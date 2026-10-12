@@ -1,0 +1,303 @@
+/* ==========================================================================
+   Scanner Interface (USB & Camera) — Futuristic Scanning Hub
+   ========================================================================== */
+
+.scanner-container {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: var(--space-6);
+  margin-top: var(--space-4);
+}
+
+@media (max-width: 992px) {
+  .scanner-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.scanner-feed-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.scanner-mode-switch {
+  display: flex;
+  background-color: var(--color-surface-hover);
+  padding: 5px;
+  border-radius: var(--radius-xl);
+  gap: 6px;
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--color-border);
+}
+
+.scanner-mode-btn {
+  flex: 1;
+  padding: 0.65rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  transition: all var(--transition-normal);
+}
+
+.scanner-mode-btn:hover:not(.is-active) {
+  color: var(--color-text-primary);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.scanner-mode-btn.is-active {
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="dark"] .scanner-mode-btn.is-active {
+  background: #1e293b;
+  color: var(--color-primary);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+/* ==========================================================================
+   USB Scanner Viewport
+   ========================================================================== */
+.scanner-viewport-usb {
+  height: 340px;
+  background: radial-gradient(circle at center, rgba(14, 165, 233, 0.08) 0%, rgba(15, 23, 42, 0.02) 70%),
+              linear-gradient(135deg, rgba(14, 165, 233, 0.04), rgba(249, 115, 22, 0.04));
+  border: 2px dashed rgba(14, 165, 233, 0.4);
+  border-radius: var(--radius-2xl);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-6);
+  position: relative;
+  overflow: hidden;
+  transition: all var(--transition-normal);
+}
+
+[data-theme="dark"] .scanner-viewport-usb {
+  background: radial-gradient(circle at center, rgba(56, 189, 248, 0.12) 0%, rgba(9, 13, 22, 0.6) 70%),
+              #0c1322;
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.scanner-viewport-usb.is-listening {
+  border-color: #10b981;
+  background: radial-gradient(circle at center, rgba(16, 185, 129, 0.1) 0%, rgba(15, 23, 42, 0.02) 70%);
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.15);
+}
+
+[data-theme="dark"] .scanner-viewport-usb.is-listening {
+  background: radial-gradient(circle at center, rgba(16, 185, 129, 0.15) 0%, rgba(9, 13, 22, 0.7) 70%);
+  box-shadow: 0 0 35px rgba(16, 185, 129, 0.25);
+}
+
+.scanner-usb-pulse {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.15), rgba(14, 165, 233, 0.25));
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.25rem;
+  margin-bottom: var(--space-4);
+  position: relative;
+  box-shadow: 0 0 20px rgba(14, 165, 233, 0.3);
+}
+
+.scanner-viewport-usb.is-listening .scanner-usb-pulse {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.35));
+  color: #10b981;
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.4);
+}
+
+.scanner-viewport-usb.is-listening .scanner-usb-pulse::before,
+.scanner-viewport-usb.is-listening .scanner-usb-pulse::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  border: 2px solid rgba(16, 185, 129, 0.6);
+  animation: pulse-ring 2.4s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+}
+
+.scanner-viewport-usb.is-listening .scanner-usb-pulse::after {
+  animation-delay: 1.2s;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.85); opacity: 0.9; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* ==========================================================================
+   Camera Scanner Viewport
+   ========================================================================== */
+.scanner-viewport-cam {
+  height: 340px;
+  background-color: #050811;
+  border-radius: var(--radius-2xl);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8);
+}
+
+.scanner-viewport-cam video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Futuristic Scanning Laser */
+.scanner-laser {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #38bdf8 20%, #38bdf8 80%, transparent);
+  box-shadow: 0 0 16px 3px rgba(56, 189, 248, 0.8),
+              0 0 30px 6px rgba(56, 189, 248, 0.4);
+  animation: laser-scan 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate;
+  z-index: 5;
+}
+
+@keyframes laser-scan {
+  0% { top: 8%; opacity: 0.8; }
+  50% { opacity: 1; }
+  100% { top: 92%; opacity: 0.8; }
+}
+
+/* Scanner Reticle HUD */
+.scanner-reticle {
+  position: absolute;
+  width: 260px;
+  height: 160px;
+  border: 2px solid rgba(56, 189, 248, 0.8);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 25px rgba(56, 189, 248, 0.25),
+              inset 0 0 0 1000px rgba(5, 8, 17, 0.45);
+  pointer-events: none;
+  z-index: 4;
+}
+
+.scanner-reticle::before,
+.scanner-reticle::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-color: #38bdf8;
+  border-style: solid;
+}
+
+.scanner-reticle::before {
+  top: -4px;
+  left: -4px;
+  border-width: 3px 0 0 3px;
+}
+
+.scanner-reticle::after {
+  bottom: -4px;
+  right: -4px;
+  border-width: 0 3px 3px 0;
+}
+
+/* ==========================================================================
+   Scan Feedback Banner
+   ========================================================================== */
+.scan-last-feedback {
+  margin-top: var(--space-4);
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s ease;
+}
+
+.scan-last-feedback.feedback-success {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #10b981;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.15);
+}
+
+.scan-last-feedback.feedback-duplicate {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #d97706;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.15);
+}
+
+.scan-last-feedback.feedback-error {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.15);
+}
+
+/* ==========================================================================
+   Scan Feed Logs List
+   ========================================================================== */
+.scan-feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: var(--space-1);
+}
+
+.scan-feed-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+  transition: all var(--transition-fast);
+}
+
+.scan-feed-item:hover {
+  transform: translateX(4px);
+  border-color: var(--color-border-hover);
+}
+
+.scan-feed-item:first-child {
+  border-color: var(--color-primary);
+  background: linear-gradient(90deg, var(--color-primary-subtle), var(--color-surface));
+  box-shadow: 0 2px 10px rgba(14, 165, 233, 0.15);
+}
+
+.scan-feed-student {
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.scan-feed-meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}

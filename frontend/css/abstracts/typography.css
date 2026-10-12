@@ -1,0 +1,51 @@
+/* ================================================================
+   Typography
+   ================================================================ */
+
+.text-xs     { font-size: var(--fs-xs); }
+.text-sm     { font-size: var(--fs-sm); }
+.text-base   { font-size: var(--fs-base); }
+.text-md     { font-size: var(--fs-md); }
+.text-lg     { font-size: var(--fs-lg); }
+.text-xl     { font-size: var(--fs-xl); }
+.text-2xl    { font-size: var(--fs-2xl); }
+.text-3xl    { font-size: var(--fs-3xl); }
+
+.font-light  { font-weight: var(--fw-light); }
+.font-normal { font-weight: var(--fw-normal); }
+.font-medium { font-weight: var(--fw-medium); }
+.font-semi   { font-weight: var(--fw-semi); }
+.font-bold   { font-weight: var(--fw-bold); }
+
+.text-primary   { color: var(--txt-primary); }
+.text-secondary { color: var(--txt-secondary); }
+.text-muted     { color: var(--txt-muted); }
+.text-brand     { color: var(--clr-primary-500); }
+.text-accent    { color: var(--clr-accent-400); }
+.text-success   { color: var(--clr-success-500); }
+.text-danger    { color: var(--clr-danger-500); }
+.text-warning   { color: var(--clr-warning-500); }
+
+.text-left   { text-align: left; }
+.text-center { text-align: center; }
+.text-right  { text-align: right; }
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-heading {
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.025em;
+  color: var(--txt-primary);
+}
+
+.section-heading {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semi);
+  color: var(--txt-primary);
+  margin-bottom: var(--sp-4);
+}

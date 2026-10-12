@@ -1,0 +1,186 @@
+/* ==========================================================================
+   Theme Variables — Light & Dark Modes
+   ========================================================================== */
+
+/* === Light Theme (Default) === */
+[data-theme="light"],
+:root {
+  /* Surface & Backgrounds */
+  --color-bg:             #f8fafc;
+  --color-surface:        #ffffff;
+  --color-surface-subtle: #f1f5f9;
+  --color-surface-hover:  #e2e8f0;
+  --color-backdrop:       rgba(15, 23, 42, 0.55);
+
+  --bg-app:      var(--color-bg);
+  --bg-surface:  var(--color-surface);
+  --bg-elevated: #ffffff;
+  --bg-subtle:   var(--color-surface-subtle);
+  --bg-overlay:  var(--color-backdrop);
+
+  /* Primary (Sky Blue) */
+  --color-primary:        #0ea5e9;
+  --color-primary-hover:  #0284c7;
+  --color-primary-active: #0369a1;
+  --color-primary-subtle: rgba(14, 165, 233, 0.12);
+  --clr-primary-500:      var(--color-primary);
+  --clr-primary-600:      var(--color-primary-hover);
+
+  /* Accent (Vibrant Orange) */
+  --color-accent:        #f97316;
+  --color-accent-hover:  #ea580c;
+  --color-accent-active: #c2410c;
+  --color-accent-subtle: rgba(249, 115, 22, 0.12);
+  --clr-accent-400:      var(--color-accent);
+  --clr-accent-500:      var(--color-accent-hover);
+
+  /* Semantic Feedback */
+  --color-success:        #10b981;
+  --color-success-hover:  #059669;
+  --color-success-subtle: rgba(16, 185, 129, 0.12);
+  --clr-success-500:      var(--color-success);
+
+  --color-danger:         #ef4444;
+  --color-danger-hover:   #dc2626;
+  --color-danger-subtle:  rgba(239, 68, 68, 0.12);
+  --clr-danger-500:       var(--color-danger);
+
+  --color-warning:        #f59e0b;
+  --color-warning-hover:  #d97706;
+  --color-warning-subtle: rgba(245, 158, 11, 0.12);
+  --clr-warning-500:      var(--color-warning);
+
+  /* Text & Content */
+  --color-text-primary:   #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted:     #94a3b8;
+  --color-text-inverse:   #ffffff;
+
+  --txt-primary:   var(--color-text-primary);
+  --txt-secondary: var(--color-text-secondary);
+  --txt-muted:     var(--color-text-muted);
+  --txt-inverse:   var(--color-text-inverse);
+
+  /* Borders & Dividers */
+  --color-border:       #e2e8f0;
+  --color-border-hover: #cbd5e1;
+  --color-border-focus: #0ea5e9;
+  --border-color:       var(--color-border);
+  --border-color-focus: var(--color-border-focus);
+
+  /* Controls & Inputs */
+  --input-bg:     #ffffff;
+  --input-border: #cbd5e1;
+  --input-focus:  #0ea5e9;
+
+  /* Header & Navigation */
+  --header-bg:     rgba(255, 255, 255, 0.88);
+  --header-border: #e2e8f0;
+
+  --sidebar-bg:         #0f172a;
+  --sidebar-txt:        #94a3b8;
+  --sidebar-txt-active: #ffffff;
+  --sidebar-item-hover: rgba(255, 255, 255, 0.08);
+  --sidebar-item-active:#0ea5e9;
+
+  /* Card and Tables */
+  --stat-card-bg:    #ffffff;
+  --table-header-bg: #f8fafc;
+  --table-row-hover: #f1f5f9;
+  --table-border:    #e2e8f0;
+
+  /* Scrollbar */
+  --scrollbar-track: #f1f5f9;
+  --scrollbar-thumb: #cbd5e1;
+}
+
+/* === Dark Theme === */
+[data-theme="dark"] {
+  /* Surface & Backgrounds */
+  --color-bg:             #090d16;
+  --color-surface:        #111827;
+  --color-surface-subtle: #172236;
+  --color-surface-hover:  #1e2d48;
+  --color-backdrop:       rgba(0, 0, 0, 0.75);
+
+  --bg-app:      var(--color-bg);
+  --bg-surface:  var(--color-surface);
+  --bg-elevated: #1a2234;
+  --bg-subtle:   var(--color-surface-subtle);
+  --bg-overlay:  var(--color-backdrop);
+
+  /* Primary (Lighter Sky Blue for Dark Theme) */
+  --color-primary:        #38bdf8;
+  --color-primary-hover:  #0ea5e9;
+  --color-primary-active: #0284c7;
+  --color-primary-subtle: rgba(56, 189, 248, 0.16);
+  --clr-primary-500:      var(--color-primary);
+  --clr-primary-600:      var(--color-primary-hover);
+
+  /* Accent (Warm Vibrant Orange) */
+  --color-accent:        #fb923c;
+  --color-accent-hover:  #f97316;
+  --color-accent-active: #ea580c;
+  --color-accent-subtle: rgba(251, 146, 60, 0.16);
+  --clr-accent-400:      var(--color-accent);
+  --clr-accent-500:      var(--color-accent-hover);
+
+  /* Semantic Feedback */
+  --color-success:        #34d399;
+  --color-success-hover:  #10b981;
+  --color-success-subtle: rgba(52, 211, 153, 0.16);
+  --clr-success-500:      var(--color-success);
+
+  --color-danger:         #f87171;
+  --color-danger-hover:   #ef4444;
+  --color-danger-subtle:  rgba(248, 113, 113, 0.16);
+  --clr-danger-500:       var(--color-danger);
+
+  --color-warning:        #fbbf24;
+  --color-warning-hover:  #f59e0b;
+  --color-warning-subtle: rgba(251, 191, 36, 0.16);
+  --clr-warning-500:      var(--color-warning);
+
+  /* Text & Content */
+  --color-text-primary:   #f8fafc;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted:     #64748b;
+  --color-text-inverse:   #0f172a;
+
+  --txt-primary:   var(--color-text-primary);
+  --txt-secondary: var(--color-text-secondary);
+  --txt-muted:     var(--color-text-muted);
+  --txt-inverse:   var(--color-text-inverse);
+
+  /* Borders & Dividers */
+  --color-border:       #1e293b;
+  --color-border-hover: #334155;
+  --color-border-focus: #38bdf8;
+  --border-color:       var(--color-border);
+  --border-color-focus: var(--color-border-focus);
+
+  /* Controls & Inputs */
+  --input-bg:     #0d131f;
+  --input-border: #243247;
+  --input-focus:  #38bdf8;
+
+  /* Header & Navigation */
+  --header-bg:     rgba(17, 24, 39, 0.88);
+  --header-border: #1e293b;
+
+  --sidebar-bg:         #0b0f19;
+  --sidebar-txt:        #94a3b8;
+  --sidebar-txt-active: #ffffff;
+  --sidebar-item-hover: rgba(255, 255, 255, 0.06);
+  --sidebar-item-active:#38bdf8;
+
+  /* Card and Tables */
+  --stat-card-bg:    #111827;
+  --table-header-bg: #0d131f;
+  --table-row-hover: #172236;
+  --table-border:    #1e293b;
+
+  /* Scrollbar */
+  --scrollbar-track: #0d131f;
+  --scrollbar-thumb: #334155;
+}

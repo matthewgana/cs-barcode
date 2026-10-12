@@ -1,0 +1,177 @@
+/* ==========================================================================
+   Cards & Stat Cards Component — Premium Design
+   ========================================================================== */
+
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: box-shadow var(--transition-normal), transform var(--transition-normal), border-color var(--transition-normal);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-border-hover);
+}
+
+.card-header,
+.card__header {
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  background-color: var(--color-surface);
+}
+
+.card-title,
+.card__title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.card-body,
+.card__body {
+  padding: var(--space-6);
+}
+
+.card-footer,
+.card__footer {
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--color-border);
+  background-color: var(--color-surface-subtle);
+}
+
+/* === Stat Cards — Premium Glassmorphism === */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.stat-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-bounce);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 60%);
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* Accent glow blobs per card */
+.stat-card:nth-child(1) { --card-glow: rgba(14, 165, 233, 0.06); --card-icon-grad: linear-gradient(135deg, #0284c7, #38bdf8); --card-shadow-color: rgba(14, 165, 233, 0.2); }
+.stat-card:nth-child(2) { --card-glow: rgba(139, 92, 246, 0.06); --card-icon-grad: linear-gradient(135deg, #7c3aed, #a78bfa); --card-shadow-color: rgba(139, 92, 246, 0.2); }
+.stat-card:nth-child(3) { --card-glow: rgba(16, 185, 129, 0.06); --card-icon-grad: linear-gradient(135deg, #059669, #34d399); --card-shadow-color: rgba(16, 185, 129, 0.2); }
+.stat-card:nth-child(4) { --card-glow: rgba(249, 115, 22, 0.06); --card-icon-grad: linear-gradient(135deg, #ea580c, #fb923c); --card-shadow-color: rgba(249, 115, 22, 0.2); }
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 160px;
+  height: 160px;
+  background: var(--card-glow, rgba(14, 165, 233, 0.06));
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(30px);
+  transition: all var(--transition-slow);
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px -5px var(--card-shadow-color, rgba(14, 165, 233, 0.2)), var(--shadow-md);
+  border-color: transparent;
+}
+
+.stat-card:hover::before {
+  transform: scale(1.3);
+  opacity: 1.5;
+}
+
+/* Stat card top-line accent */
+.stat-card-accent-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+.stat-card:nth-child(1) .stat-card-accent-line { background: linear-gradient(90deg, #0284c7, #38bdf8); }
+.stat-card:nth-child(2) .stat-card-accent-line { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+.stat-card:nth-child(3) .stat-card-accent-line { background: linear-gradient(90deg, #059669, #34d399); }
+.stat-card:nth-child(4) .stat-card-accent-line { background: linear-gradient(90deg, #ea580c, #fb923c); }
+
+.stat-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.stat-card-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-lg);
+  background: var(--card-icon-grad, linear-gradient(135deg, #0284c7, #38bdf8));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  flex-shrink: 0;
+  box-shadow: 0 6px 16px var(--card-shadow-color, rgba(14, 165, 233, 0.25));
+}
+
+.stat-card-label,
+.stat-card__label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.stat-card-value,
+.stat-card__value {
+  font-size: clamp(1.75rem, 3vw, var(--font-size-4xl));
+  font-weight: var(--font-weight-extrabold);
+  color: var(--color-text-primary);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  margin: var(--space-1) 0;
+}
+
+.stat-card-meta,
+.stat-card__change {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* Trend indicator */
+.stat-trend-up   { color: var(--color-success); font-weight: var(--font-weight-semibold); }
+.stat-trend-down { color: var(--color-danger);  font-weight: var(--font-weight-semibold); }
