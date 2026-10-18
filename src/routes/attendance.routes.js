@@ -9,12 +9,14 @@ const router = Router();
 
 router.use(requireAuth);
 
-// Scan barcode (check-in / check-out)
-router.post('/scan', requireRole('hod', 'lecturer'), catchAsync(recordScan));
+// Scan barcode (check-in / check-out) — HOD, Lecturer, and Student (self-mark only, ABAC enforced in controller)
+router.post('/scan', requireRole('hod', 'lecturer', 'student'), catchAsync(recordScan));
 
 // Get all attendance records for a specific session
-router.get('/sessions/:id/records', catchAsync(getSessionAttendanceRecords));
-router.get('/session/:id', catchAsync(getSessionAttendanceRecords));
+// RBAC: Students are STRICTLY blocked. They see their own status on the scanner page.
+// The controller also enforces ABAC (student sees only own record), but defence-in-depth requires route-level block.
+router.get('/sessions/:id/records', requireRole('hod', 'lecturer', 'secretary'), catchAsync(getSessionAttendanceRecords));
+router.get('/session/:id', requireRole('hod', 'lecturer', 'secretary'), catchAsync(getSessionAttendanceRecords));
 
 // Authorized correction of attendance records
 router.post('/correct', requireRole('hod', 'lecturer', 'secretary'), catchAsync(correctAttendanceRecord));

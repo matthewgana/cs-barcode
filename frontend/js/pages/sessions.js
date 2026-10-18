@@ -132,6 +132,9 @@ export const SessionsPage = {
                 <a href="#/scanner?session_id=${s.id}" class="btn btn-sm btn-accent" title="Scan Barcodes">
                   📷 Scan
                 </a>
+                <button class="btn btn-sm btn-outline btn-view-qr" data-id="${s.id}" title="Project Session Attendance QR Code">
+                  📱 QR Code
+                </button>
                 ${canManage ? `
                   <button class="btn btn-sm btn-warning btn-close-session" data-id="${s.id}" title="Close Session">
                     Close
@@ -178,6 +181,13 @@ export const SessionsPage = {
           Notification.warning('Attendance session closed.');
           this.loadSessions();
         } catch {}
+      });
+    });
+
+    tbody.querySelectorAll('.btn-view-qr').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const session = this.sessions.find(s => s.id === btn.dataset.id);
+        if (session) this.showSessionQrModal(session);
       });
     });
 
@@ -315,5 +325,45 @@ export const SessionsPage = {
     } catch (err) {
       Notification.error('Failed to prepare session form: ' + err.message);
     }
+  },
+
+  showSessionQrModal(session) {
+    const qrUrl = `/api/sessions/${session.id}/qrcode?format=svg`;
+    const level = session.academic_level || session.level || '100';
+
+    const content = `
+      <div style="text-align: center; padding: var(--space-4);">
+        <div style="display: inline-block; background: var(--color-surface-hover); padding: 4px 12px; border-radius: 999px; font-size: var(--font-size-xs); font-weight: var(--font-weight-bold); color: var(--color-primary); margin-bottom: var(--space-2);">
+          ${Util.escapeHtml(session.course_code)} &bull; ${level} Level
+        </div>
+        <h2 style="font-size: var(--font-size-xl); margin: 0 0 4px;">${Util.escapeHtml(session.course_title)}</h2>
+        <p class="text-muted" style="font-size: var(--font-size-sm); margin-bottom: var(--space-5);">
+          Session Code: <code style="font-size: var(--font-size-base); font-weight: var(--font-weight-bold);">${session.id}</code>
+        </p>
+
+        <div style="display: flex; justify-content: center; align-items: center; margin: 0 auto var(--space-5); width: 280px; height: 280px; background: #ffffff; border-radius: var(--radius-lg); padding: var(--space-4); box-shadow: var(--shadow-lg); border: 2px solid var(--color-border);">
+          <img src="${qrUrl}" alt="Live Attendance QR Code" style="width: 100%; height: 100%; object-fit: contain;" />
+        </div>
+
+        <div class="alert alert-info" style="text-align: left; font-size: var(--font-size-xs);">
+          💡 <strong>Projector Instructions:</strong> Project this QR code on the lecture screen. Students in class can sign in to their portal, select <strong>Scan / Mark Attendance</strong>, and scan this code to take attendance instantly.
+        </div>
+      </div>
+    `;
+
+    const footer = `
+      <button class="btn btn-outline" id="btn-close-qr-modal">Done</button>
+      <a href="#/scanner?session_id=${session.id}" class="btn btn-primary" id="btn-goto-scanner">Open Live Scanner &rarr;</a>
+    `;
+
+    Modal.show({
+      title: `Projector Display: ${session.course_code} Attendance Code`,
+      content,
+      footer,
+      size: 'md'
+    });
+
+    document.getElementById('btn-close-qr-modal')?.addEventListener('click', () => Modal.close());
+    document.getElementById('btn-goto-scanner')?.addEventListener('click', () => Modal.close());
   }
 };

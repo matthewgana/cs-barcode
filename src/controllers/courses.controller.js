@@ -4,10 +4,20 @@ import { logAudit } from '../utils/audit.js';
 
 export async function getCourses(req, res, next) {
   const { academic_level, semester_type, status, search } = req.query;
+  const user = req.session.user;
   const conditions = [];
   const params = [];
 
-  if (academic_level) {
+  // ABAC: If user is a student, restrict visibility strictly to their academic level or enrolled courses
+  if (user.role === 'student') {
+    const studentLevel = user.academicLevel || '100';
+    const studentId = user.studentId || -1;
+    params.push(studentLevel);
+    const lvlIdx = params.length;
+    params.push(studentId);
+    const stuIdx = params.length;
+    conditions.push(`(c.academic_level = $${lvlIdx} OR c.id IN (SELECT course_id FROM student_course_enrollments WHERE student_id = $${stuIdx} AND enrollment_status = 'enrolled'))`);
+  } else if (academic_level) {
     params.push(academic_level);
     conditions.push(`c.academic_level = $${params.length}`);
   }
@@ -47,11 +57,31 @@ export async function getCourses(req, res, next) {
 
 export async function getCourseById(req, res, next) {
   const { id } = req.params;
+  const user = req.session.user;
+
   const result = await query(`SELECT * FROM courses WHERE id = $1`, [id]);
   if (result.rowCount === 0) {
     return next(new AppError('Course not found.', 404));
   }
-  res.json({ success: true, data: result.rows[0] });
+
+  const course = result.rows[0];
+
+  // ABAC: If student, verify course matches their academic level or enrollment
+  if (user.role === 'student') {
+    const studentLevel = user.academicLevel || '100';
+    const studentId = user.studentId || -1;
+    if (course.academic_level !== studentLevel) {
+      const enrollCheck = await query(
+        `SELECT id FROM student_course_enrollments WHERE student_id = $1 AND course_id = $2 AND enrollment_status = 'enrolled'`,
+        [studentId, id]
+      );
+      if (enrollCheck.rowCount === 0) {
+        return next(new AppError(`Access denied: You are not authorized to view courses of other academic levels (${course.academic_level}L).`, 403));
+      }
+    }
+  }
+
+  res.json({ success: true, data: course });
 }
 
 export async function createCourse(req, res, next) {

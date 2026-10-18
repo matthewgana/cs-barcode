@@ -24,18 +24,20 @@ export const Sidebar = {
         ]
       },
       {
-        section: isStudent ? 'MY RECORDS' : 'ATTENDANCE',
+        section: isStudent ? 'MY ATTENDANCE' : 'ATTENDANCE',
         items: [
-          { route: 'scanner', label: 'Live Scanner', icon: '📷', show: isHod || isLecturer },
+          { route: 'scanner', label: isStudent ? 'Scan / Mark Attendance' : 'Live Scanner', icon: '📷', show: true },
           { route: 'sessions', label: 'Attendance Sessions', icon: '⏱️', show: !isStudent },
-          { route: 'attendance', label: isStudent ? 'My Attendance' : 'Attendance Records', icon: '📋', show: true },
+          // RBAC: Students MUST NOT access the general attendance records page.
+          // Their own check-in status is displayed on the scanner page after marking.
+          { route: 'attendance', label: 'Attendance Records', icon: '📋', show: !isStudent },
           { route: 'reports', label: 'Reports & Analytics', icon: '📈', show: !isStudent }
         ]
       },
       {
         section: 'ACADEMIC',
         items: [
-          { route: 'courses', label: 'Courses', icon: '📚', show: true },
+          { route: 'courses', label: isStudent ? 'My Level Courses' : 'Courses', icon: '📚', show: true },
           { route: 'academic-sessions', label: 'Sessions & Terms', icon: '📅', show: isHod || isSecretary },
           { route: 'semesters', label: 'Semesters', icon: '📆', show: isHod || isSecretary }
         ]

@@ -31,10 +31,12 @@ const routes = {
   profile: { controller: ProfilePage, title: 'My Profile & Security', auth: true },
   students: { controller: StudentsPage, title: 'Students & Barcodes', auth: true, roles: ['hod', 'secretary'] },
   courses: { controller: CoursesPage, title: 'Courses', auth: true },
-  sessions: { controller: SessionsPage, title: 'Attendance Sessions', auth: true },
-  scanner: { controller: ScannerPage, title: 'Live Barcode Scanner', auth: true, roles: ['hod', 'lecturer'] },
-  attendance: { controller: AttendancePage, title: 'Attendance Records', auth: true },
-  reports: { controller: ReportsPage, title: 'Attendance Reports', auth: true },
+  sessions: { controller: SessionsPage, title: 'Attendance Sessions', auth: true, roles: ['hod', 'lecturer', 'secretary'] },
+  scanner: { controller: ScannerPage, title: 'Attendance Scanner & Check-In', auth: true, roles: ['hod', 'lecturer', 'student'] },
+  // RBAC: Students MUST NOT access the general attendance records page.
+  // They use the scanner page to view their own check-in status.
+  attendance: { controller: AttendancePage, title: 'Attendance Records', auth: true, roles: ['hod', 'lecturer', 'secretary'] },
+  reports: { controller: ReportsPage, title: 'Attendance Reports', auth: true, roles: ['hod', 'lecturer', 'secretary'] },
   enrollments: { controller: EnrollmentsPage, title: 'Course Enrollments', auth: true, roles: ['hod', 'secretary'] },
   'academic-sessions': { controller: AcademicSessionsPage, title: 'Academic Sessions', auth: true, roles: ['hod', 'secretary'] },
   semesters: { controller: SemestersPage, title: 'Semesters', auth: true, roles: ['hod', 'secretary'] },

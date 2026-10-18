@@ -1,12 +1,14 @@
 /**
  * Live Barcode Attendance Scanner Controller
  * Supports:
- *  1) USB Keyboard Wedge Barcode Scanner (fast keystroke buffer + Enter)
- *  2) Built-in Device Camera Barcode Scanning (html5-qrcode library)
+ *  1) Staff/Faculty Mode: USB Keyboard Wedge reader or device webcam scanning student ID cards
+ *  2) Student Self-Attendance Mode: Camera scanning lecturer's session QR code or instant session check-in
  */
 
 import { Api } from '../core/api.js';
+import { Auth } from '../core/auth.js';
 import { Util } from '../core/utilities.js';
+import { Modal } from '../core/modal.js';
 import { Notification } from '../core/notifications.js';
 
 export const ScannerPage = {
@@ -28,15 +30,24 @@ export const ScannerPage = {
   usbTimeout: null,
 
   render() {
+    const isStudent = Auth.hasRole('student');
+
     return `
       <div class="page-wrapper">
         <div class="page-header">
           <div class="page-header-title">
-            <h1>Live Barcode Attendance Scanner</h1>
-            <p>Scan student Code 128 barcodes via USB handheld reader or live device camera.</p>
+            <h1>${isStudent ? 'Attendance Scanner &amp; Check-In' : 'Live Barcode Attendance Scanner'}</h1>
+            <p>${isStudent
+              ? 'Mark attendance for active lecture sessions by scanning the lecturer\'s QR code or entering the session code.'
+              : 'Scan student Code 128 barcodes via USB handheld reader or live device camera.'}</p>
           </div>
-          <div class="page-actions">
-            <div class="form-group mb-0" style="min-width: 320px;">
+          <div class="page-actions" style="display: flex; gap: var(--space-2); align-items: center;">
+            ${!isStudent ? `
+              <button type="button" class="btn btn-outline" id="btn-show-qr-scanner" style="display: none;">
+                <span>📱</span> Display Session QR
+              </button>
+            ` : ''}
+            <div class="form-group mb-0" style="min-width: 300px;">
               <select id="scanner-session-select" class="form-control">
                 <option value="">Select an active attendance session...</option>
               </select>
@@ -47,8 +58,12 @@ export const ScannerPage = {
         <div id="scanner-no-session" class="empty-state card p-8" style="display: none;">
           <div class="empty-state-icon">⚠️</div>
           <h3 class="empty-state-title">No Active Attendance Session Selected</h3>
-          <p class="empty-state-desc">Please open or select an active session above to start scanning barcodes.</p>
-          <a href="#/sessions" class="btn btn-primary" style="margin-top: var(--space-3);">Go to Sessions Manager</a>
+          <p class="empty-state-desc">${isStudent
+            ? 'There are currently no active open attendance sessions for your enrolled courses.'
+            : 'Please open or select an active session above to start scanning barcodes.'}</p>
+          <a href="${isStudent ? '#/dashboard' : '#/sessions'}" class="btn btn-primary" style="margin-top: var(--space-3);">
+            ${isStudent ? 'Return to Dashboard' : 'Go to Sessions Manager'}
+          </a>
         </div>
 
         <div id="scanner-workspace" style="display: none;">
@@ -60,13 +75,15 @@ export const ScannerPage = {
               <div class="stat-card-meta" id="scanner-session-meta">—</div>
             </div>
             <div class="stat-card">
-              <div class="stat-card-label">Students Checked In</div>
-              <div class="stat-card-value text-success" id="stat-scanned-count">0</div>
-              <div class="stat-card-meta">Present: <span id="stat-present-count">0</span> | Late: <span id="stat-late-count">0</span></div>
+              <div class="stat-card-label">${isStudent ? 'My Attendance Status' : 'Students Checked In'}</div>
+              <div class="stat-card-value text-success" id="stat-scanned-count">${isStudent ? 'Pending' : '0'}</div>
+              <div class="stat-card-meta" id="stat-scanned-meta">${isStudent ? 'Awaiting scan/check-in' : 'Present: 0 | Late: 0'}</div>
             </div>
             <div class="stat-card">
-              <div class="stat-card-label">Scan Method</div>
-              <div class="stat-card-value text-accent" id="stat-scan-mode-label" style="font-size: var(--font-size-xl);">USB Wedge</div>
+              <div class="stat-card-label">Check-In Method</div>
+              <div class="stat-card-value text-accent" id="stat-scan-mode-label" style="font-size: var(--font-size-xl);">
+                ${isStudent ? 'Device Camera' : 'USB Wedge'}
+              </div>
               <div class="stat-card-meta">Ready for instant input</div>
             </div>
           </div>
@@ -77,36 +94,53 @@ export const ScannerPage = {
             <div class="card scanner-feed-card">
               <div class="card-header">
                 <div class="scanner-mode-switch">
-                  <button type="button" class="scanner-mode-btn is-active" id="btn-mode-usb">
-                    <span>🔌</span> USB Hardware Scanner
-                  </button>
-                  <button type="button" class="scanner-mode-btn" id="btn-mode-cam">
-                    <span>📷</span> Device Camera
-                  </button>
+                  ${!isStudent ? `
+                    <button type="button" class="scanner-mode-btn is-active" id="btn-mode-usb">
+                      <span>🔌</span> USB Hardware Scanner
+                    </button>
+                    <button type="button" class="scanner-mode-btn" id="btn-mode-cam">
+                      <span>📷</span> Device Camera
+                    </button>
+                  ` : `
+                    <button type="button" class="scanner-mode-btn is-active" id="btn-mode-cam">
+                      <span>📷</span> Scan Projector QR Code
+                    </button>
+                    <button type="button" class="scanner-mode-btn" id="btn-mode-usb">
+                      <span>⌨️</span> Manual Session Code
+                    </button>
+                  `}
                 </div>
               </div>
 
               <div class="card-body">
-                <!-- USB Mode View -->
-                <div id="usb-scanner-view" class="scanner-viewport-usb is-listening" tabindex="0">
+                <!-- USB / Manual Entry View -->
+                <div id="usb-scanner-view" class="scanner-viewport-usb is-listening" tabindex="0" style="${isStudent ? 'display: none;' : ''}">
                   <div class="scanner-usb-pulse">⚡</div>
-                  <h3 style="font-weight: var(--font-weight-bold); margin-bottom: 4px;">Hardware Scanner Active</h3>
+                  <h3 style="font-weight: var(--font-weight-bold); margin-bottom: 4px;">
+                    ${isStudent ? 'Manual Session Code Entry' : 'Hardware Scanner Active'}
+                  </h3>
                   <p class="text-muted" style="font-size: var(--font-size-sm); max-width: 380px;">
-                    Aim handheld USB barcode reader at student ID card. Barcode data is captured automatically without clicking.
+                    ${isStudent
+                      ? 'Type or paste the Session Code displayed by your lecturer to record attendance.'
+                      : 'Aim handheld USB barcode reader at student ID card. Barcode data is captured automatically without clicking.'}
                   </p>
-                  <!-- Hidden text input to capture scanner input if focused -->
                   <input
                     type="text"
                     id="usb-direct-input"
                     class="form-control"
                     style="margin-top: 1rem; max-width: 320px; text-align: center; font-family: var(--font-family-mono);"
-                    placeholder="or type / paste barcode value..."
+                    placeholder="${isStudent ? 'Enter Session Code or ATT:SESSION:...' : 'or type / paste barcode value...'}"
                     autocomplete="off"
                   />
+                  ${isStudent ? `
+                    <button type="button" class="btn btn-primary btn-sm" id="btn-submit-manual-code" style="margin-top: 0.75rem;">
+                      Submit Attendance
+                    </button>
+                  ` : ''}
                 </div>
 
                 <!-- Camera Mode View -->
-                <div id="camera-scanner-view" class="scanner-viewport-cam" style="display: none;">
+                <div id="camera-scanner-view" class="scanner-viewport-cam" style="${isStudent ? 'display: flex;' : 'display: none;'}">
                   <div id="camera-reader" style="width: 100%; height: 100%;"></div>
                   <div class="scanner-laser"></div>
                   <div class="scanner-reticle"></div>
@@ -123,11 +157,11 @@ export const ScannerPage = {
               </div>
             </div>
 
-            <!-- Right: Real-Time Attendance Feed -->
+            <!-- Right: Real-Time Attendance Feed / Student Status -->
             <div class="card">
               <div class="card-header">
-                <h3 class="card-title">Live Scanned Students</h3>
-                <span class="badge badge-primary" id="feed-count-badge">0 Checked In</span>
+                <h3 class="card-title">${isStudent ? 'My Attendance Record' : 'Live Scanned Students'}</h3>
+                <span class="badge badge-primary" id="feed-count-badge">${isStudent ? 'Status' : '0 Checked In'}</span>
               </div>
               <div class="card-body" style="padding: var(--space-4);">
                 <div class="scan-feed-list" id="scan-feed-list">
@@ -150,10 +184,31 @@ export const ScannerPage = {
     this.scannedList = [];
     this.stats = { total: 0, present: 0, late: 0 };
 
+    const isStudent = Auth.hasRole('student');
+    this.scanMode = isStudent ? 'camera' : 'usb';
+
     await this.loadActiveSessions();
     this.setupUsbListener();
     this.setupManualInput();
     this.setupModeSwitch();
+
+    // Setup projector QR button for lecturer/HOD
+    document.getElementById('btn-show-qr-scanner')?.addEventListener('click', () => {
+      if (this.activeSession) this.showSessionQrModal(this.activeSession);
+    });
+
+    if (isStudent) {
+      document.getElementById('btn-submit-manual-code')?.addEventListener('click', () => {
+        const val = document.getElementById('usb-direct-input')?.value.trim();
+        if (val) {
+          this.processBarcode(val, 'mobile_qr');
+        } else if (this.activeSession) {
+          this.processBarcode(this.activeSession.id, 'mobile_qr');
+        }
+      });
+      // Start camera automatically for student to scan projector QR
+      setTimeout(() => this.startCameraScanner(), 300);
+    }
   },
 
   async loadActiveSessions() {
@@ -210,6 +265,11 @@ export const ScannerPage = {
     document.getElementById('scanner-no-session').style.display = 'none';
     document.getElementById('scanner-workspace').style.display = 'block';
 
+    const btnQr = document.getElementById('btn-show-qr-scanner');
+    if (btnQr) {
+      btnQr.style.display = session.status === 'open' ? 'inline-flex' : 'none';
+    }
+
     const level = session.academic_level || session.level || '100';
     document.getElementById('scanner-course-code').textContent = session.course_code;
     document.getElementById('scanner-session-meta').textContent = `${session.course_title} • ${level} Level`;
@@ -217,34 +277,47 @@ export const ScannerPage = {
     // Load existing records for this session
     await this.loadSessionRecords(sessionId);
 
-    // Focus input for USB scanner
-    document.getElementById('usb-direct-input')?.focus();
+    // Focus input for USB scanner if not student
+    if (!Auth.hasRole('student')) {
+      document.getElementById('usb-direct-input')?.focus();
+    }
   },
 
   async loadSessionRecords(sessionId) {
+    const isStudent = Auth.hasRole('student');
     try {
-      const res = await Api.get(`/attendance/session/${sessionId}`);
-      const records = res.data || [];
-      this.scannedList = records;
+      if (isStudent) {
+        // Students: use GET /sessions/:id which returns only their own my_attendance record
+        const res = await Api.get(`/sessions/${sessionId}`);
+        const raw = res.data?.my_attendance;
+        // Normalize field names: attendance_status → status, attendance_record_id → id
+        const myAttendance = raw ? {
+          ...raw,
+          id: raw.id || raw.attendance_record_id,
+          status: raw.status || raw.attendance_status,
+        } : null;
+        this.scannedList = myAttendance ? [myAttendance] : [];
+      } else {
+        // Staff: fetch full attendance roster for the session
+        const res = await Api.get(`/attendance/session/${sessionId}`);
+        this.scannedList = res.data || [];
+      }
       this.updateStats();
       this.renderFeed();
     } catch {
-      // Empty if no scans yet
+      this.scannedList = [];
+      this.renderFeed();
     }
   },
 
   setupUsbListener() {
-    // Hardware USB barcode scanners fire keys extremely quickly (typically < 30ms between keys)
-    // terminated by Enter.
     window.onBarcodeKeydown = (e) => {
-      // Don't capture if user is typing in regular forms elsewhere, but capture if in scanner page
       if (window.location.hash.indexOf('scanner') === -1) return;
       if (!this.activeSession) return;
 
       const currentTime = Date.now();
       const directInput = document.getElementById('usb-direct-input');
 
-      // If user pressed Enter, process buffer
       if (e.key === 'Enter') {
         let codeToProcess = this.usbBuffer.trim();
         if (!codeToProcess && directInput && directInput.value.trim()) {
@@ -260,7 +333,6 @@ export const ScannerPage = {
         return;
       }
 
-      // If keys are coming quickly (< 50ms interval), it's a hardware scanner
       if (currentTime - this.lastKeyTime > 200) {
         this.usbBuffer = '';
       }
@@ -285,7 +357,7 @@ export const ScannerPage = {
         e.preventDefault();
         const val = input.value.trim();
         if (val) {
-          this.processBarcode(val, 'USB');
+          this.processBarcode(val, Auth.hasRole('student') ? 'mobile_qr' : 'USB');
           input.value = '';
         }
       }
@@ -293,6 +365,7 @@ export const ScannerPage = {
   },
 
   setupModeSwitch() {
+    const isStudent = Auth.hasRole('student');
     const btnUsb = document.getElementById('btn-mode-usb');
     const btnCam = document.getElementById('btn-mode-cam');
     const usbView = document.getElementById('usb-scanner-view');
@@ -305,7 +378,7 @@ export const ScannerPage = {
       btnCam.classList.remove('is-active');
       usbView.style.display = 'flex';
       camView.style.display = 'none';
-      modeLabel.textContent = 'USB Wedge';
+      modeLabel.textContent = isStudent ? 'Session Code' : 'USB Wedge';
       this.stopCameraScanner();
       document.getElementById('usb-direct-input')?.focus();
     });
@@ -327,11 +400,13 @@ export const ScannerPage = {
       return;
     }
 
+    if (this.cameraScanner) return; // already active
+
     try {
       this.cameraScanner = new Html5Qrcode('camera-reader');
       const config = {
         fps: 10,
-        qrbox: { width: 280, height: 160 },
+        qrbox: { width: 280, height: 200 },
         aspectRatio: 1.777778
       };
 
@@ -339,15 +414,12 @@ export const ScannerPage = {
         { facingMode: 'environment' },
         config,
         (decodedText) => {
-          // On successful scan
           this.processBarcode(decodedText, 'camera');
         },
-        (error) => {
-          // Frame decode error (normal while searching)
-        }
+        () => {}
       );
     } catch (err) {
-      Notification.error('Failed to start camera: ' + (err.message || 'Permission denied'));
+      Notification.error('Camera notice: ' + (err.message || 'Permission required or camera busy'));
     }
   },
 
@@ -364,18 +436,27 @@ export const ScannerPage = {
 
   async processBarcode(barcodeValue, method = 'USB') {
     if (!this.activeSession) {
-      Notification.warning('Please select an attendance session first.');
+      Notification.warning('Please select an active attendance session first.');
       return;
     }
 
-    if (this.isScanning) return; // Debounce rapid scans
+    if (this.isScanning) return; // Debounce
     this.isScanning = true;
+
+    const isStudent = Auth.hasRole('student');
+    const user = Auth.getUser();
+
+    // If student and barcode matches session ID or ATT:SESSION, pass session ID
+    let finalBarcode = barcodeValue;
+    if (isStudent && (!barcodeValue || barcodeValue === this.activeSession.id || barcodeValue.startsWith('ATT:SESSION:'))) {
+      finalBarcode = user?.barcodeValue || user?.matricNumber;
+    }
 
     try {
       const res = await Api.post('/attendance/scan', {
         attendance_session_id: this.activeSession.id,
-        barcode_value: barcodeValue,
-        scan_method: method
+        barcode_value: finalBarcode,
+        scan_method: isStudent ? 'camera' : method
       }, { silent: true });
 
       const record = res.data || res.attendance || {};
@@ -387,7 +468,7 @@ export const ScannerPage = {
         academic_level: record.academic_level || record.level
       };
 
-      const studentName = student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Student';
+      const studentName = student.full_name || 'Student';
       const matricNum = student.matric_number || student.reg_number || 'Matric';
       const studentLvl = student.academic_level || student.level || '100';
       const scanTime = record.scanned_at || record.check_in_time || new Date().toISOString();
@@ -399,11 +480,12 @@ export const ScannerPage = {
       // Show banner
       this.showFeedback({
         type: 'success',
-        title: `CHECKED IN: ${studentName}`,
-        desc: `${matricNum} (${studentLvl}L) • Status: ${status.toUpperCase()} • Time: ${Util.formatTime(scanTime)}`
+        title: isStudent ? `ATTENDANCE MARKED: ${status.toUpperCase()}` : `CHECKED IN: ${studentName}`,
+        desc: `${studentName} (${matricNum}, ${studentLvl}L) • Status: ${status.toUpperCase()} • Time: ${Util.formatTime(scanTime)}`
       });
 
-      // Prepend to feed
+      // Update local feed
+      this.scannedList = this.scannedList.filter(s => s.id !== record.id && s.student_id !== student.id);
       this.scannedList.unshift({
         ...record,
         full_name: studentName,
@@ -421,7 +503,6 @@ export const ScannerPage = {
       this.updateStats();
       this.renderFeed();
     } catch (err) {
-      // Check if duplicate scan
       if (err.message && err.message.toLowerCase().includes('already')) {
         Util.playBeep('duplicate');
         this.showFeedback({
@@ -461,6 +542,25 @@ export const ScannerPage = {
   },
 
   updateStats() {
+    const isStudent = Auth.hasRole('student');
+    if (isStudent) {
+      const myRecord = this.scannedList[0];
+      const countEl = document.getElementById('stat-scanned-count');
+      const metaEl = document.getElementById('stat-scanned-meta');
+      const badgeEl = document.getElementById('feed-count-badge');
+
+      if (myRecord) {
+        if (countEl) countEl.textContent = myRecord.status.toUpperCase();
+        if (metaEl) metaEl.textContent = `Checked in at ${Util.formatTime(myRecord.check_in_time || myRecord.scanned_at)}`;
+        if (badgeEl) badgeEl.textContent = 'Verified';
+      } else {
+        if (countEl) countEl.textContent = 'Not Recorded';
+        if (metaEl) metaEl.textContent = 'Scan code to mark presence';
+        if (badgeEl) badgeEl.textContent = 'Pending';
+      }
+      return;
+    }
+
     const present = this.scannedList.filter(s => s.status === 'present').length;
     const late = this.scannedList.filter(s => s.status === 'late').length;
     const total = this.scannedList.length;
@@ -474,6 +574,50 @@ export const ScannerPage = {
   renderFeed() {
     const feed = document.getElementById('scan-feed-list');
     if (!feed) return;
+
+    const isStudent = Auth.hasRole('student');
+
+    if (isStudent) {
+      const myRecord = this.scannedList[0];
+      if (myRecord) {
+        feed.innerHTML = `
+          <div class="card p-6" style="background: var(--color-surface-hover); border: 1px solid var(--color-border); text-align: center;">
+            <div style="font-size: 2.5rem; margin-bottom: var(--space-2);">✅</div>
+            <h3 style="font-weight: var(--font-weight-bold); margin-bottom: var(--space-1);">Attendance Confirmed</h3>
+            <p class="text-muted" style="font-size: var(--font-size-sm); margin-bottom: var(--space-4);">
+              You are officially registered for this lecture session.
+            </p>
+            <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: var(--space-3);">
+              ${Util.getStatusBadge(myRecord.status)}
+              <span class="badge badge-neutral">${Util.escapeHtml(myRecord.scan_method || 'Mobile')}</span>
+            </div>
+            <div style="font-family: var(--font-family-mono); font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+              Recorded at: ${Util.formatDateTime(myRecord.check_in_time || myRecord.scanned_at)}
+            </div>
+          </div>
+        `;
+      } else {
+        feed.innerHTML = `
+          <div class="empty-state p-6" style="text-align: center;">
+            <div class="empty-state-icon">⏳</div>
+            <div class="empty-state-title">Not Checked In</div>
+            <div class="empty-state-desc" style="margin-bottom: var(--space-4);">
+              Scan the session QR code on the lecture screen or click below to mark your attendance.
+            </div>
+            ${this.activeSession?.status === 'open' ? `
+              <button type="button" class="btn btn-primary" id="btn-instant-checkin">
+                ⚡ Mark My Attendance Now
+              </button>
+            ` : '<span class="badge badge-warning">Session is not open for check-ins</span>'}
+          </div>
+        `;
+
+        document.getElementById('btn-instant-checkin')?.addEventListener('click', () => {
+          this.processBarcode(this.activeSession.id, 'mobile_qr');
+        });
+      }
+      return;
+    }
 
     if (this.scannedList.length === 0) {
       feed.innerHTML = `
@@ -500,6 +644,44 @@ export const ScannerPage = {
         </div>
       </div>
     `).join('');
+  },
+
+  showSessionQrModal(session) {
+    const qrUrl = `/api/sessions/${session.id}/qrcode?format=svg`;
+    const level = session.academic_level || session.level || '100';
+
+    const content = `
+      <div style="text-align: center; padding: var(--space-4);">
+        <div style="display: inline-block; background: var(--color-surface-hover); padding: 4px 12px; border-radius: 999px; font-size: var(--font-size-xs); font-weight: var(--font-weight-bold); color: var(--color-primary); margin-bottom: var(--space-2);">
+          ${Util.escapeHtml(session.course_code)} &bull; ${level} Level
+        </div>
+        <h2 style="font-size: var(--font-size-xl); margin: 0 0 4px;">${Util.escapeHtml(session.course_title)}</h2>
+        <p class="text-muted" style="font-size: var(--font-size-sm); margin-bottom: var(--space-5);">
+          Session Code: <code style="font-size: var(--font-size-base); font-weight: var(--font-weight-bold);">${session.id}</code>
+        </p>
+
+        <div style="display: flex; justify-content: center; align-items: center; margin: 0 auto var(--space-5); width: 280px; height: 280px; background: #ffffff; border-radius: var(--radius-lg); padding: var(--space-4); box-shadow: var(--shadow-lg); border: 2px solid var(--color-border);">
+          <img src="${qrUrl}" alt="Live Attendance QR Code" style="width: 100%; height: 100%; object-fit: contain;" />
+        </div>
+
+        <div class="alert alert-info" style="text-align: left; font-size: var(--font-size-xs);">
+          💡 <strong>Projector Instructions:</strong> Project this QR code on the lecture screen. Students can scan it using their device camera or click <strong>⚡ Mark My Attendance Now</strong> in their portal.
+        </div>
+      </div>
+    `;
+
+    const footer = `
+      <button class="btn btn-outline" id="btn-close-scanner-qr">Done</button>
+    `;
+
+    Modal.show({
+      title: `Projector Display: ${session.course_code} Attendance Code`,
+      content,
+      footer,
+      size: 'md'
+    });
+
+    document.getElementById('btn-close-scanner-qr')?.addEventListener('click', () => Modal.close());
   },
 
   onDestroy() {

@@ -1,16 +1,28 @@
 import { query, transaction } from '../config/db.js';
 import { AppError } from '../utils/errors.js';
 import { logAudit } from '../utils/audit.js';
+import { generateBarcodeImage } from '../utils/barcode.js';
 
 export async function getSessions(req, res, next) {
   const { course_id, status, academic_session_id, semester_id, date } = req.query;
   const conditions = [];
   const params = [];
 
-  // If role is lecturer, only show sessions assigned to them
-  if (req.session.user.role === 'lecturer') {
-    params.push(req.session.user.id);
+  const user = req.session.user;
+
+  // ABAC / RBAC filtering
+  if (user.role === 'lecturer') {
+    params.push(user.id);
     conditions.push(`s.lecturer_id = $${params.length}`);
+  } else if (user.role === 'student') {
+    // ABAC: Students may ONLY see sessions for courses of their academic level or enrolled courses
+    const studentLevel = user.academicLevel || '100';
+    const studentId = user.studentId || -1;
+    params.push(studentLevel);
+    const lvlIdx = params.length;
+    params.push(studentId);
+    const stuIdx = params.length;
+    conditions.push(`(c.academic_level = $${lvlIdx} OR s.course_id IN (SELECT course_id FROM student_course_enrollments WHERE student_id = $${stuIdx} AND enrollment_status = 'enrolled'))`);
   }
 
   if (course_id) {
@@ -99,12 +111,46 @@ export async function getSessionById(req, res, next) {
 
   const sessionData = result.rows[0];
 
+  const user = req.session.user;
+
   // If user is lecturer, verify they own this session
-  if (req.session.user.role === 'lecturer' && sessionData.lecturer_id !== req.session.user.id) {
+  if (user.role === 'lecturer' && sessionData.lecturer_id !== user.id) {
     return next(new AppError('You are not authorized to view this session.', 403));
   }
 
-  // Get enrolled students & their current attendance record for this session
+  // ABAC: If user is student, ensure course matches their academic level or enrollment
+  if (user.role === 'student') {
+    const studentLevel = user.academicLevel || '100';
+    const studentId = user.studentId || -1;
+    if (sessionData.academic_level !== studentLevel) {
+      const enrollCheck = await query(
+        `SELECT id FROM student_course_enrollments WHERE student_id = $1 AND course_id = $2 AND enrollment_status = 'enrolled'`,
+        [studentId, sessionData.course_id]
+      );
+      if (enrollCheck.rowCount === 0) {
+        return next(new AppError('Access denied: You are not authorized to view attendance sessions of other academic levels.', 403));
+      }
+    }
+
+    // PRIVACY & ABAC: Students MUST NOT see other students' attendance history or barcodes
+    const studentAttendance = await query(
+      `SELECT ar.id AS attendance_record_id, ar.check_in_time, ar.check_out_time, ar.status AS attendance_status, ar.scan_method
+       FROM attendance_records ar
+       WHERE ar.attendance_session_id = $1 AND ar.student_id = $2`,
+      [sessionData.id, studentId]
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        ...sessionData,
+        my_attendance: studentAttendance.rows[0] || null,
+        enrolled_students: [], // Strictly redacted to protect student privacy
+      },
+    });
+  }
+
+  // Staff (HOD, Lecturer, Secretary): Get enrolled students & their current attendance record for this session
   const enrolledStudents = await query(
     `SELECT sce.student_id, s.matric_number, s.full_name, s.academic_level, s.barcode_value,
             ar.id AS attendance_record_id, ar.check_in_time, ar.check_out_time, ar.status AS attendance_status, ar.scan_method
@@ -390,3 +436,38 @@ export async function finalizeSession(req, res, next) {
     data: updatedSession.session,
   });
 }
+
+export async function getSessionQrCodeImage(req, res, next) {
+  const { id } = req.params;
+  const { format = 'svg' } = req.query;
+
+  const sessionRes = await query(
+    `SELECT s.id, s.session_title, s.status, c.course_code, c.academic_level
+     FROM attendance_sessions s
+     JOIN courses c ON s.course_id = c.id
+     WHERE s.id = $1`,
+    [id]
+  );
+
+  if (sessionRes.rowCount === 0) {
+    return next(new AppError('Attendance session not found.', 404));
+  }
+
+  const session = sessionRes.rows[0];
+  const qrPayload = `ATT:SESSION:${session.id}`;
+
+  try {
+    if (format === 'png') {
+      const pngBuffer = await generateBarcodeImage(qrPayload, 'png', 'qrcode');
+      res.setHeader('Content-Type', 'image/png');
+      return res.send(pngBuffer);
+    } else {
+      const svg = await generateBarcodeImage(qrPayload, 'svg', 'qrcode');
+      res.setHeader('Content-Type', 'image/svg+xml');
+      return res.send(svg);
+    }
+  } catch (err) {
+    next(new AppError('Error generating session QR code: ' + err.message, 500));
+  }
+}
+

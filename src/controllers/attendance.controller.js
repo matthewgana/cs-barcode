@@ -3,18 +3,30 @@ import { AppError } from '../utils/errors.js';
 import { logAudit } from '../utils/audit.js';
 
 export async function recordScan(req, res, next) {
-  const session_id = req.body.session_id || req.body.attendance_session_id;
-  const barcode_value = req.body.barcode_value;
+  let session_id = req.body.session_id || req.body.attendance_session_id;
+  let barcode_value = req.body.barcode_value;
   const scan_method_raw = String(req.body.scan_method || 'usb').toLowerCase();
   const action = req.body.action || 'check_in';
+  const user = req.session.user;
+
+  // Support scanning session QR code payload e.g. "ATT:SESSION:<id>"
+  if (typeof barcode_value === 'string' && barcode_value.startsWith('ATT:SESSION:')) {
+    session_id = session_id || barcode_value.replace('ATT:SESSION:', '').trim();
+    barcode_value = user.barcodeValue || user.matricNumber;
+  }
+
+  // If student is self-marking attendance and barcode_value not explicitly sent, default to their barcode
+  if (user.role === 'student' && !barcode_value) {
+    barcode_value = user.barcodeValue || user.matricNumber;
+  }
 
   if (!session_id || !barcode_value) {
     return next(new AppError('session_id (or attendance_session_id) and barcode_value are required.', 400));
   }
 
   const cleanBarcode = String(barcode_value).trim();
-  const validMethods = ['usb', 'camera', 'manual_correction'];
-  const finalScanMethod = validMethods.includes(scan_method_raw) ? scan_method_raw : 'usb';
+  const validMethods = ['usb', 'camera', 'manual_correction', 'mobile_qr'];
+  const finalScanMethod = validMethods.includes(scan_method_raw) ? scan_method_raw : (user.role === 'student' ? 'camera' : 'usb');
 
   // 1. Fetch attendance session details
   const sessionRes = await query(
@@ -36,12 +48,12 @@ export async function recordScan(req, res, next) {
     return next(new AppError(`Cannot record attendance: Session is currently "${session.status.toUpperCase()}". It must be OPEN.`, 400));
   }
 
-  // 3. Authorization: Caller must be HOD or the assigned lecturer
-  if (req.session.user.role === 'lecturer' && session.lecturer_id !== req.session.user.id) {
+  // 3. Authorization (RBAC & ABAC): Caller must be HOD, the assigned lecturer, or an enrolled student
+  if (user.role === 'lecturer' && session.lecturer_id !== user.id) {
     return next(new AppError('You are not authorized to record attendance for this course session.', 403));
   }
 
-  // 4. Look up student by barcode value
+  // 4. Look up student by barcode value or matric
   const studentRes = await query(
     `SELECT * FROM students WHERE barcode_value = $1 OR UPPER(matric_number) = UPPER($1)`,
     [cleanBarcode]
@@ -52,6 +64,13 @@ export async function recordScan(req, res, next) {
   }
 
   const student = studentRes.rows[0];
+
+  // ABAC: If caller is student, they may ONLY record attendance for THEMSELVES!
+  if (user.role === 'student') {
+    if (student.id !== user.studentId) {
+      return next(new AppError('ABAC Violation: You are not authorized to mark attendance for another student.', 403));
+    }
+  }
 
   if (student.status !== 'active') {
     return next(new AppError(`Student ${student.full_name} (${student.matric_number}) is currently ${student.status} and cannot record attendance.`, 403));
@@ -222,6 +241,38 @@ export async function recordScan(req, res, next) {
 
 export async function getSessionAttendanceRecords(req, res, next) {
   const { id } = req.params;
+  const user = req.session.user;
+
+  // 1. Verify session exists
+  const sessionRes = await query(
+    `SELECT s.*, c.academic_level as course_level
+     FROM attendance_sessions s
+     JOIN courses c ON s.course_id = c.id
+     WHERE s.id = $1`,
+    [id]
+  );
+
+  if (sessionRes.rowCount === 0) {
+    return next(new AppError('Attendance session not found.', 404));
+  }
+
+  const session = sessionRes.rows[0];
+
+  // 2. Authorization (RBAC & ABAC)
+  const conditions = ['ar.attendance_session_id = $1'];
+  const params = [id];
+
+  if (user.role === 'student') {
+    // ABAC: A student can strictly ONLY see their own attendance record
+    const studentId = user.studentId || -1;
+    params.push(studentId);
+    conditions.push(`ar.student_id = $${params.length}`);
+  } else if (user.role === 'lecturer') {
+    // Lecturer can only view records for sessions assigned to them
+    if (session.lecturer_id !== user.id) {
+      return next(new AppError('You are not authorized to view attendance records for this session.', 403));
+    }
+  }
 
   const result = await query(
     `SELECT ar.id, ar.check_in_time, ar.check_in_time AS scanned_at,
@@ -233,9 +284,9 @@ export async function getSessionAttendanceRecords(req, res, next) {
      FROM attendance_records ar
      JOIN students s ON ar.student_id = s.id
      LEFT JOIN users u ON ar.recorded_by_user_id = u.id
-     WHERE ar.attendance_session_id = $1
+     WHERE ${conditions.join(' AND ')}
      ORDER BY ar.check_in_time DESC`,
-    [id]
+    params
   );
 
   res.json({

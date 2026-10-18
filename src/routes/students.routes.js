@@ -10,7 +10,7 @@ const router = Router();
 
 router.use(requireAuth);
 
-router.get('/', catchAsync(getStudents));
+router.get('/', requireRole('hod', 'secretary', 'lecturer'), catchAsync(getStudents));
 router.get('/:id', catchAsync(getStudentById));
 router.get('/:id/barcode', catchAsync(getStudentBarcodeImage));
 router.post('/', requireRole('hod', 'secretary'), catchAsync(createStudent));

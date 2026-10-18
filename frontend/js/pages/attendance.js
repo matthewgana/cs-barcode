@@ -14,12 +14,16 @@ export const AttendancePage = {
   selectedSessionId: '',
 
   render() {
+    const isStudent = Auth.hasRole('student');
+
     return `
       <div class="page-wrapper">
         <div class="page-header">
           <div class="page-header-title">
-            <h1>Attendance Records &amp; Logs</h1>
-            <p>Verify attendance scans, detect lateness, and apply audited status corrections.</p>
+            <h1>${isStudent ? 'My Attendance History' : 'Attendance Records &amp; Logs'}</h1>
+            <p>${isStudent
+              ? 'Your verified check-in timestamps, lecture presence status, and scanning history.'
+              : 'Verify attendance scans, detect lateness, and apply audited status corrections.'}</p>
           </div>
           <div class="page-actions">
             <div class="form-group mb-0" style="min-width: 320px;">
@@ -41,7 +45,7 @@ export const AttendancePage = {
                   <th>Scan Time</th>
                   <th>Status</th>
                   <th>Method</th>
-                  <th style="text-align: right;">Audited Action</th>
+                  ${!isStudent ? '<th style="text-align: right;">Audited Action</th>' : ''}
                 </tr>
               </thead>
               <tbody id="attendance-table-body">
@@ -150,6 +154,7 @@ export const AttendancePage = {
       return;
     }
 
+    const isStudent = Auth.hasRole('student');
     const canCorrect = Auth.hasRole('hod', 'lecturer');
 
     tbody.innerHTML = records.map(r => `
@@ -166,13 +171,15 @@ export const AttendancePage = {
         </td>
         <td>${Util.getStatusBadge(r.status)}</td>
         <td><span class="badge badge-neutral">${Util.escapeHtml(r.scan_method || '—')}</span></td>
-        <td style="text-align: right;">
-          ${canCorrect ? `
-            <button class="btn btn-sm btn-outline btn-correct" data-id="${r.id}" title="Audited correction for this student record">
-              ✏️ Correct
-            </button>
-          ` : '—'}
-        </td>
+        ${!isStudent ? `
+          <td style="text-align: right;">
+            ${canCorrect ? `
+              <button class="btn btn-sm btn-outline btn-correct" data-id="${r.id}" title="Audited correction for this student record">
+                ✏️ Correct
+              </button>
+            ` : '—'}
+          </td>
+        ` : ''}
       </tr>
     `).join('');
 

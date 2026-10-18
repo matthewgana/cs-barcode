@@ -12,14 +12,18 @@ export const CoursesPage = {
   courses: [],
 
   render() {
+    const user = Auth.getUser();
+    const isStudent = Auth.hasRole('student');
     const canManage = Auth.hasRole('hod');
 
     return `
       <div class="page-wrapper">
         <div class="page-header">
           <div class="page-header-title">
-            <h1>Computer Science Courses</h1>
-            <p>Curriculum across 100, 200, 300, and 400 Levels with credit units and assigned lecturers.</p>
+            <h1>${isStudent ? `My Courses (${user?.academicLevel || '100'} Level)` : 'Computer Science Courses'}</h1>
+            <p>${isStudent
+              ? `Approved departmental curriculum courses for your ${user?.academicLevel || '100'} Level cohort.`
+              : 'Curriculum across 100, 200, 300, and 400 Levels with credit units and assigned lecturers.'}</p>
           </div>
           <div class="page-actions">
             ${canManage ? `
@@ -40,7 +44,7 @@ export const CoursesPage = {
                   <th>Level</th>
                   <th>Credits</th>
                   <th>Status</th>
-                  <th style="text-align: right;">Actions</th>
+                  ${!isStudent ? '<th style="text-align: right;">Actions</th>' : ''}
                 </tr>
               </thead>
               <tbody id="courses-table-body">
@@ -102,6 +106,7 @@ export const CoursesPage = {
       return;
     }
 
+    const isStudent = Auth.hasRole('student');
     const canManage = Auth.hasRole('hod');
 
     tbody.innerHTML = courses.map(c => `
@@ -112,19 +117,21 @@ export const CoursesPage = {
         <td style="font-weight: var(--font-weight-medium);">${Util.escapeHtml(c.course_title)}</td>
         <td>${Util.getLevelBadge(c.academic_level || c.level)}</td>
         <td><span class="badge badge-neutral">${c.credit_units} Units</span></td>
-        <td>${c.is_active ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-neutral">Inactive</span>'}</td>
-        <td style="text-align: right;">
-          <div style="display: inline-flex; gap: 6px;">
-            <a href="#/enrollments?course_id=${c.id}" class="btn btn-sm btn-outline" title="View Students Enrolled">
-              Enrollments
-            </a>
-            ${canManage ? `
-              <button class="btn btn-sm btn-ghost btn-edit-course" data-id="${c.id}" title="Edit Course">
-                ✏️
-              </button>
-            ` : ''}
-          </div>
-        </td>
+        <td>${c.status === 'active' || c.is_active ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-neutral">Inactive</span>'}</td>
+        ${!isStudent ? `
+          <td style="text-align: right;">
+            <div style="display: inline-flex; gap: 6px;">
+              <a href="#/enrollments?course_id=${c.id}" class="btn btn-sm btn-outline" title="View Students Enrolled">
+                Enrollments
+              </a>
+              ${canManage ? `
+                <button class="btn btn-sm btn-ghost btn-edit-course" data-id="${c.id}" title="Edit Course">
+                  ✏️
+                </button>
+              ` : ''}
+            </div>
+          </td>
+        ` : ''}
       </tr>
     `).join('');
 
@@ -155,14 +162,23 @@ export const CoursesPage = {
           <input type="text" id="course-title" class="form-control" placeholder="e.g. Operating Systems Architecture" required />
         </div>
 
-        <div class="form-group">
-          <label class="form-label" for="course-level">Academic Level *</label>
-          <select id="course-level" class="form-control" required>
-            <option value="100">100 Level</option>
-            <option value="200">200 Level</option>
-            <option value="300" selected>300 Level</option>
-            <option value="400">400 Level</option>
-          </select>
+        <div class="grid grid-2" style="gap: var(--space-4);">
+          <div class="form-group">
+            <label class="form-label" for="course-level">Academic Level *</label>
+            <select id="course-level" class="form-control" required>
+              <option value="100">100 Level</option>
+              <option value="200">200 Level</option>
+              <option value="300" selected>300 Level</option>
+              <option value="400">400 Level</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="course-semester">Semester Type *</label>
+            <select id="course-semester" class="form-control" required>
+              <option value="first">First Semester</option>
+              <option value="second">Second Semester</option>
+            </select>
+          </div>
         </div>
 
         <div class="form-group">
@@ -188,12 +204,13 @@ export const CoursesPage = {
     document.getElementById('btn-save-course')?.addEventListener('click', async () => {
       const code = document.getElementById('course-code').value.trim();
       const title = document.getElementById('course-title').value.trim();
-      const level = document.getElementById('course-level').value;
+      const academic_level = document.getElementById('course-level').value;
+      const semester_type = document.getElementById('course-semester').value;
       const credits = parseInt(document.getElementById('course-credits').value, 10);
       const desc = document.getElementById('course-desc').value.trim();
 
-      if (!code || !title || !level) {
-        Notification.warning('Please enter course code, title, and level.');
+      if (!code || !title || !academic_level || !semester_type) {
+        Notification.warning('Please enter course code, title, academic level, and semester type.');
         return;
       }
 
@@ -201,7 +218,8 @@ export const CoursesPage = {
         await Api.post('/courses', {
           course_code: code,
           course_title: title,
-          level,
+          academic_level,
+          semester_type,
           credit_units: credits,
           description: desc || undefined
         });
@@ -232,14 +250,23 @@ export const CoursesPage = {
           <input type="text" id="edit-course-title" class="form-control" value="${Util.escapeHtml(course.course_title)}" required />
         </div>
 
-        <div class="form-group">
-          <label class="form-label" for="edit-course-level">Academic Level *</label>
-          <select id="edit-course-level" class="form-control" required>
-            <option value="100" ${course.level == '100' ? 'selected' : ''}>100 Level</option>
-            <option value="200" ${course.level == '200' ? 'selected' : ''}>200 Level</option>
-            <option value="300" ${course.level == '300' ? 'selected' : ''}>300 Level</option>
-            <option value="400" ${course.level == '400' ? 'selected' : ''}>400 Level</option>
-          </select>
+        <div class="grid grid-2" style="gap: var(--space-4);">
+          <div class="form-group">
+            <label class="form-label" for="edit-course-level">Academic Level *</label>
+            <select id="edit-course-level" class="form-control" required>
+              <option value="100" ${course.academic_level == '100' ? 'selected' : ''}>100 Level</option>
+              <option value="200" ${course.academic_level == '200' ? 'selected' : ''}>200 Level</option>
+              <option value="300" ${course.academic_level == '300' ? 'selected' : ''}>300 Level</option>
+              <option value="400" ${course.academic_level == '400' ? 'selected' : ''}>400 Level</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="edit-course-semester">Semester Type *</label>
+            <select id="edit-course-semester" class="form-control" required>
+              <option value="first" ${course.semester_type == 'first' ? 'selected' : ''}>First Semester</option>
+              <option value="second" ${course.semester_type == 'second' ? 'selected' : ''}>Second Semester</option>
+            </select>
+          </div>
         </div>
       </form>
     `;
@@ -260,14 +287,16 @@ export const CoursesPage = {
     document.getElementById('btn-update-course')?.addEventListener('click', async () => {
       const code = document.getElementById('edit-course-code').value.trim();
       const title = document.getElementById('edit-course-title').value.trim();
-      const level = document.getElementById('edit-course-level').value;
+      const academic_level = document.getElementById('edit-course-level').value;
+      const semester_type = document.getElementById('edit-course-semester').value;
       const credits = parseInt(document.getElementById('edit-course-credits').value, 10);
 
       try {
         await Api.put(`/courses/${course.id}`, {
           course_code: code,
           course_title: title,
-          level,
+          academic_level,
+          semester_type,
           credit_units: credits
         });
 

@@ -48,7 +48,9 @@ export const DashboardPage = {
       contentEl.style.display = 'block';
 
       if (data.isStudent) {
-        this.renderStudentDashboard(data);
+        const studentSessionsRes = await Api.get('/sessions').catch(() => ({ data: [] }));
+        const openSession = (studentSessionsRes.data || []).find(s => s.status === 'open');
+        this.renderStudentDashboard(data, openSession);
       } else {
         const sessionsRes = await Api.get('/sessions').catch(() => ({ data: [] }));
         const allSessions = sessionsRes.data || [];
@@ -71,7 +73,7 @@ export const DashboardPage = {
   /* ==========================================================================
      STUDENT PORTAL DASHBOARD
      ========================================================================== */
-  renderStudentDashboard(data) {
+  renderStudentDashboard(data, openSession = null) {
     const student = IdCardPrinter.normalizeStudent(data.student || {});
     const stats = data.stats || { rate: 100, attended: 0, present: 0, late: 0, absent: 0, totalSessions: 0 };
     const courses = data.courses || [];
@@ -89,32 +91,16 @@ export const DashboardPage = {
     const actionsEl = document.getElementById('dashboard-actions');
     if (actionsEl) {
       actionsEl.innerHTML = `
-        <button type="button" class="btn btn-primary" id="btn-print-id-card">
-          <span>🖨️</span> Print ID Card (Dual-Sided)
-        </button>
-        <button type="button" class="btn btn-outline" id="btn-download-barcode">
-          <span>⬇️</span> Save Barcode
+        <a href="#/scanner" class="btn btn-primary" id="btn-scan-attendance-direct">
+          <span>📷</span> Mark Attendance
+        </a>
+        <button type="button" class="btn btn-outline" id="btn-print-id-card">
+          <span>🖨️</span> Print ID Card
         </button>
       `;
 
       document.getElementById('btn-print-id-card')?.addEventListener('click', () => {
         IdCardPrinter.printStudentIdCard(student);
-      });
-
-      document.getElementById('btn-download-barcode')?.addEventListener('click', async () => {
-        if (!student.id) return;
-        try {
-          const res = await fetch(`/api/students/${student.id}/barcode?format=png`);
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `barcode-${student.matricNumber || 'student'}.png`;
-          a.click();
-          URL.revokeObjectURL(url);
-        } catch (e) {
-          console.error('Barcode download failed', e);
-        }
       });
     }
 
@@ -124,6 +110,25 @@ export const DashboardPage = {
 
     const contentEl = document.getElementById('dashboard-content');
     contentEl.innerHTML = `
+      ${openSession ? `
+        <div class="card mb-6 p-5" style="border-left: 4px solid var(--color-success); background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(14, 165, 233, 0.05)); display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 2rem;">🔴</span>
+            <div>
+              <div style="font-weight: var(--font-weight-bold); font-size: var(--font-size-base); color: var(--color-text);">
+                LIVE LECTURE IN PROGRESS: ${Util.escapeHtml(openSession.course_code)}
+              </div>
+              <div style="font-size: var(--font-size-xs); color: var(--color-text-secondary);">
+                ${Util.escapeHtml(openSession.session_title)} &bull; ${openSession.academic_level || openSession.level || '100'}L &bull; Session is currently OPEN
+              </div>
+            </div>
+          </div>
+          <a href="#/scanner?session_id=${openSession.id}" class="btn btn-primary btn-sm" style="white-space: nowrap;">
+            📷 Take / Mark Attendance Now &rarr;
+          </a>
+        </div>
+      ` : ''}
+
       <!-- Top Section: Digital ID Card + Performance Summary -->
       <div class="grid grid-2" style="gap: var(--space-6); margin-bottom: var(--space-6); align-items: start;">
         

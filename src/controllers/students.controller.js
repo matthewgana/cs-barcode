@@ -56,6 +56,13 @@ export async function getStudents(req, res, next) {
 
 export async function getStudentById(req, res, next) {
   const { id } = req.params;
+  const user = req.session.user;
+
+  // ABAC: If caller is a student, they may strictly view only their own record
+  if (user.role === 'student' && String(user.studentId) !== String(id)) {
+    return next(new AppError('Access denied: You are not authorized to view another student\'s record.', 403));
+  }
+
   const result = await query(
     `SELECT id, matric_number, full_name, academic_level, barcode_value, email, phone, photo_url,
             admission_year, status, created_at, updated_at
@@ -214,6 +221,12 @@ export async function regenerateBarcode(req, res, next) {
 export async function getStudentBarcodeImage(req, res, next) {
   const { id } = req.params;
   const { format = 'svg', type = 'code128' } = req.query;
+  const user = req.session.user;
+
+  // ABAC: If caller is a student, they may strictly generate/view only their own barcode
+  if (user.role === 'student' && String(user.studentId) !== String(id)) {
+    return next(new AppError('Access denied: You are not authorized to view or download another student\'s barcode.', 403));
+  }
 
   const result = await query(`SELECT barcode_value, matric_number, full_name FROM students WHERE id = $1`, [id]);
   if (result.rowCount === 0) {

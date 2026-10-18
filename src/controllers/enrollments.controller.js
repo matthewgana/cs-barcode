@@ -4,8 +4,19 @@ import { logAudit } from '../utils/audit.js';
 
 export async function getEnrollments(req, res, next) {
   const { course_id, student_id, academic_session_id, semester_id, academic_level, search } = req.query;
+  const user = req.session.user;
   const conditions = [];
   const params = [];
+
+  // ABAC / RBAC filtering
+  if (user.role === 'student') {
+    const sId = user.studentId || -1;
+    params.push(sId);
+    conditions.push(`e.student_id = $${params.length}`);
+  } else if (user.role === 'lecturer') {
+    params.push(user.id);
+    conditions.push(`e.course_id IN (SELECT course_id FROM lecturer_assignments WHERE lecturer_id = $${params.length} AND assignment_status = 'assigned')`);
+  }
 
   if (course_id) {
     params.push(course_id);
