@@ -3,14 +3,19 @@
 -- Enable standard extensions if needed
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. Users Table (HOD, Lecturers, Secretary)
+-- 1. Users Table (HOD, Lecturers, Secretary, Students)
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
+  student_id INTEGER,
   full_name VARCHAR(150) NOT NULL,
   username VARCHAR(100) UNIQUE NOT NULL,
   email VARCHAR(150) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  role VARCHAR(50) NOT NULL CHECK (role IN ('hod', 'lecturer', 'secretary')),
+  role VARCHAR(50) NOT NULL CHECK (role IN ('hod', 'lecturer', 'secretary', 'student')),
+  photo_url TEXT,
+  phone VARCHAR(50),
+  title VARCHAR(50),
+  office_location VARCHAR(100),
   status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -58,12 +63,14 @@ CREATE TABLE IF NOT EXISTS courses (
 -- 5. Students (Strictly assigned to 100, 200, 300, 400 level)
 CREATE TABLE IF NOT EXISTS students (
   id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   matric_number VARCHAR(50) UNIQUE NOT NULL,
   full_name VARCHAR(150) NOT NULL,
   academic_level VARCHAR(20) NOT NULL CHECK (academic_level IN ('100', '200', '300', '400')),
   barcode_value VARCHAR(64) UNIQUE NOT NULL,
   email VARCHAR(150),
   phone VARCHAR(50),
+  photo_url TEXT,
   admission_year INTEGER,
   status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended', 'graduated')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

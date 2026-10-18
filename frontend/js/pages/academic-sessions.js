@@ -77,12 +77,12 @@ export const AcademicSessionsPage = {
 
       tbody.innerHTML = this.sessions.map(s => `
         <tr>
-          <td style="font-weight: var(--font-weight-bold);">${Util.escapeHtml(s.name)}</td>
+          <td style="font-weight: var(--font-weight-bold);">${Util.escapeHtml(s.session_label)}</td>
           <td>${Util.formatDate(s.start_date)}</td>
           <td>${Util.formatDate(s.end_date)}</td>
-          <td>${s.is_current ? '<span class="badge badge-success">Current Active</span>' : '<span class="badge badge-neutral">Archived</span>'}</td>
+          <td>${s.status === 'active' ? '<span class="badge badge-success">Current Active</span>' : '<span class="badge badge-neutral">Archived</span>'}</td>
           <td style="text-align: right;">
-            ${!s.is_current && Auth.hasRole('hod') ? `
+            ${s.status !== 'active' && Auth.hasRole('hod') ? `
               <button class="btn btn-sm btn-outline btn-set-current" data-id="${s.id}">
                 Set as Active
               </button>
@@ -94,7 +94,7 @@ export const AcademicSessionsPage = {
       tbody.querySelectorAll('.btn-set-current').forEach(btn => {
         btn.addEventListener('click', async () => {
           try {
-            await Api.put(`/academic/sessions/${btn.dataset.id}`, { is_current: true });
+            await Api.put(`/academic/sessions/${btn.dataset.id}`, { status: 'active' });
             Notification.success('Active academic session updated!');
             this.loadSessions();
           } catch {}
@@ -157,10 +157,10 @@ export const AcademicSessionsPage = {
 
       try {
         await Api.post('/academic/sessions', {
-          name,
+          session_label: name,
           start_date: start,
           end_date: end,
-          is_current: isCurrent
+          status: isCurrent ? 'active' : 'inactive'
         });
 
         Notification.success('Academic session created!');

@@ -23,10 +23,12 @@ import { SemestersPage } from './pages/semesters.js';
 import { LecturerAssignmentsPage } from './pages/lecturer-assignments.js';
 import { StaffPage } from './pages/staff.js';
 import { AuditPage } from './pages/audit.js';
+import { ProfilePage } from './pages/profile.js';
 
 const routes = {
   login: { controller: LoginPage, title: 'Login', auth: false },
   dashboard: { controller: DashboardPage, title: 'Department Dashboard', auth: true },
+  profile: { controller: ProfilePage, title: 'My Profile & Security', auth: true },
   students: { controller: StudentsPage, title: 'Students & Barcodes', auth: true, roles: ['hod', 'secretary'] },
   courses: { controller: CoursesPage, title: 'Courses', auth: true },
   sessions: { controller: SessionsPage, title: 'Attendance Sessions', auth: true },

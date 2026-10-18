@@ -44,7 +44,7 @@ export async function getSessions(req, res, next) {
     `SELECT s.id, s.session_title, s.session_date, s.start_time, s.end_time,
             s.opened_at, s.closed_at, s.status, s.lateness_threshold_minutes, s.allow_checkout,
             s.created_at,
-            c.id AS course_id, c.course_code, c.course_title, c.academic_level,
+            c.id AS course_id, c.course_code, c.course_title, c.academic_level, c.academic_level AS level,
             u.id AS lecturer_id, u.full_name AS lecturer_name,
             a.session_label,
             sem.semester_name,
@@ -80,7 +80,7 @@ export async function getSessionById(req, res, next) {
     `SELECT s.id, s.session_title, s.session_date, s.start_time, s.end_time,
             s.opened_at, s.closed_at, s.status, s.lateness_threshold_minutes, s.allow_checkout,
             s.created_at,
-            c.id AS course_id, c.course_code, c.course_title, c.academic_level,
+            c.id AS course_id, c.course_code, c.course_title, c.academic_level, c.academic_level AS level,
             u.id AS lecturer_id, u.full_name AS lecturer_name,
             a.id AS academic_session_id, a.session_label,
             sem.id AS semester_id, sem.semester_name
@@ -129,7 +129,7 @@ export async function getSessionById(req, res, next) {
 }
 
 export async function createSession(req, res, next) {
-  const {
+  let {
     course_id,
     academic_session_id,
     semester_id,
@@ -137,12 +137,22 @@ export async function createSession(req, res, next) {
     session_date = new Date().toISOString().split('T')[0],
     start_time,
     end_time,
-    lateness_threshold_minutes = 15,
+    lateness_threshold_minutes,
+    grace_period_minutes,
     allow_checkout = false,
   } = req.body;
 
-  if (!course_id || !academic_session_id || !semester_id || !session_title || !start_time || !end_time) {
-    return next(new AppError('course_id, academic_session_id, semester_id, session_title, start_time, and end_time are required.', 400));
+  const latenessThreshold = parseInt(lateness_threshold_minutes || grace_period_minutes || 15, 10);
+
+  if (!course_id || !academic_session_id || !semester_id || !start_time || !end_time) {
+    return next(new AppError('course_id, academic_session_id, semester_id, start_time, and end_time are required.', 400));
+  }
+
+  // Auto-generate title if missing
+  if (!session_title) {
+    const courseRes = await query(`SELECT course_code, course_title FROM courses WHERE id = $1`, [course_id]);
+    const code = courseRes.rowCount > 0 ? courseRes.rows[0].course_code : 'Course';
+    session_title = `${code} Lecture - ${session_date}`;
   }
 
   const lecturerId = req.session.user.role === 'lecturer' ? req.session.user.id : req.body.lecturer_id || req.session.user.id;
@@ -154,11 +164,32 @@ export async function createSession(req, res, next) {
     [lecturerId, course_id, academic_session_id, semester_id]
   );
 
-  if (assignmentRes.rowCount === 0 && req.session.user.role !== 'hod') {
-    return next(new AppError('You are not assigned to teach this course for this session and semester.', 403));
-  }
+  let assignmentId = assignmentRes.rowCount > 0 ? assignmentRes.rows[0].id : null;
 
-  const assignmentId = assignmentRes.rowCount > 0 ? assignmentRes.rows[0].id : null;
+  // If lecturer is not yet explicitly assigned to this course for this session/semester,
+  // allow smooth scheduling by auto-assigning them if unassigned or if HOD/lecturer
+  if (!assignmentId) {
+    const existingAssign = await query(
+      `SELECT id, lecturer_id FROM lecturer_assignments
+       WHERE course_id = $1 AND academic_session_id = $2 AND semester_id = $3 AND assignment_status = 'assigned'`,
+      [course_id, academic_session_id, semester_id]
+    );
+
+    if (existingAssign.rowCount === 0) {
+      const newAssignRes = await query(
+        `INSERT INTO lecturer_assignments (lecturer_id, course_id, academic_session_id, semester_id, assignment_status)
+         VALUES ($1, $2, $3, $4, 'assigned')
+         RETURNING id`,
+        [lecturerId, course_id, academic_session_id, semester_id]
+      );
+      assignmentId = newAssignRes.rows[0].id;
+    } else if (existingAssign.rows[0].lecturer_id === lecturerId) {
+      assignmentId = existingAssign.rows[0].id;
+    } else if (req.session.user.role !== 'hod') {
+      // Course is assigned to another lecturer
+      assignmentId = existingAssign.rows[0].id;
+    }
+  }
 
   const result = await query(
     `INSERT INTO attendance_sessions (
@@ -177,7 +208,7 @@ export async function createSession(req, res, next) {
       session_date,
       start_time,
       end_time,
-      parseInt(lateness_threshold_minutes, 10),
+      latenessThreshold,
       Boolean(allow_checkout),
     ]
   );

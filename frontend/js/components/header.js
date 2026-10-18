@@ -29,10 +29,15 @@ export const Header = {
           </button>
 
           <div class="header-profile">
-            <div class="header-user-badge">
-              <span class="header-user-name">${user ? Util.escapeHtml(user.fullName || user.username) : ''}</span>
-              <span class="badge badge-sm badge-info">${user ? Util.escapeHtml(user.role.toUpperCase()) : ''}</span>
-            </div>
+            <a href="#/profile" class="header-user-link" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; padding: 4px 8px; border-radius: var(--radius-md); transition: background 0.2s;" title="Manage Profile & Photo">
+              <div class="header-user-avatar" style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #0ea5e9, #6366f1); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem; overflow: hidden; border: 2px solid var(--color-primary); flex-shrink: 0; box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25);">
+                ${user?.photoUrl ? `<img src="${user.photoUrl}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;" />` : ((user?.fullName || user?.username || 'U')[0].toUpperCase())}
+              </div>
+              <div class="header-user-badge">
+                <span class="header-user-name">${user ? Util.escapeHtml(user.fullName || user.username) : ''}</span>
+                <span class="badge badge-sm badge-info">${user ? Util.escapeHtml(user.role.toUpperCase()) : ''}</span>
+              </div>
+            </a>
             <button class="btn btn-outline btn-sm" id="btn-logout" title="Sign out of system">
               Logout
             </button>

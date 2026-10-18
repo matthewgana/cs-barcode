@@ -41,8 +41,8 @@ export async function getLecturerAssignments(req, res, next) {
   const result = await query(
     `SELECT la.id, la.assignment_status, la.created_at,
             u.id AS lecturer_id, u.full_name AS lecturer_name, u.email AS lecturer_email,
-            c.id AS course_id, c.course_code, c.course_title, c.academic_level,
-            a.id AS session_id, a.session_label,
+            c.id AS course_id, c.course_code, c.course_title, c.academic_level, c.academic_level AS level,
+            a.id AS session_id, a.session_label, a.session_label AS academic_session_name,
             s.id AS semester_id, s.semester_name
      FROM lecturer_assignments la
      JOIN users u ON la.lecturer_id = u.id
@@ -62,16 +62,30 @@ export async function getLecturerAssignments(req, res, next) {
 }
 
 export async function createLecturerAssignment(req, res, next) {
-  const { lecturer_id, course_id, academic_session_id, semester_id } = req.body;
+  let { lecturer_id, course_id, academic_session_id, semester_id } = req.body;
 
-  if (!lecturer_id || !course_id || !academic_session_id || !semester_id) {
-    return next(new AppError('lecturer_id, course_id, academic_session_id, and semester_id are required.', 400));
+  if (!lecturer_id || !course_id || !academic_session_id) {
+    return next(new AppError('lecturer_id, course_id, and academic_session_id are required.', 400));
   }
 
-  // Ensure user is actually a lecturer
+  if (!semester_id) {
+    const semRes = await query(
+      `SELECT id FROM semesters WHERE academic_session_id = $1 AND status = 'active' ORDER BY id ASC LIMIT 1`,
+      [academic_session_id]
+    );
+    if (semRes.rowCount > 0) {
+      semester_id = semRes.rows[0].id;
+    } else {
+      const anySem = await query(`SELECT id FROM semesters WHERE academic_session_id = $1 ORDER BY id ASC LIMIT 1`, [academic_session_id]);
+      if (anySem.rowCount > 0) semester_id = anySem.rows[0].id;
+      else return next(new AppError('No semester found for this academic session.', 400));
+    }
+  }
+
+  // Ensure user is actually a lecturer or HOD
   const userCheck = await query(`SELECT id, role, full_name FROM users WHERE id = $1`, [lecturer_id]);
-  if (userCheck.rowCount === 0 || userCheck.rows[0].role !== 'lecturer') {
-    return next(new AppError('The specified user is not a registered lecturer.', 400));
+  if (userCheck.rowCount === 0 || !['lecturer', 'hod'].includes(userCheck.rows[0].role)) {
+    return next(new AppError('The specified user is not a registered lecturer or faculty member.', 400));
   }
 
   // Check unique assignment

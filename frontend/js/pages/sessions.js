@@ -205,8 +205,8 @@ export const SessionsPage = {
       const sessions = academicRes.data || [];
       const semesters = semestersRes.data || [];
 
-      const activeSession = sessions.find(s => s.is_current) || sessions[0];
-      const activeSemester = semesters.find(s => s.is_current) || semesters[0];
+      const activeSession = sessions.find(s => s.status === 'active') || sessions[0];
+      const activeSemester = semesters.find(s => s.status === 'active') || semesters[0];
 
       const today = new Date().toISOString().split('T')[0];
 
@@ -217,7 +217,7 @@ export const SessionsPage = {
             <select id="session-course" class="form-control" required>
               <option value="">Select Course...</option>
               ${courses.map(c => `
-                <option value="${c.id}">${Util.escapeHtml(c.course_code)} — ${Util.escapeHtml(c.course_title)} (${c.level} Level)</option>
+                <option value="${c.id}">${Util.escapeHtml(c.course_code)} — ${Util.escapeHtml(c.course_title)} (${c.academic_level || c.level || 'N/A'} Level)</option>
               `).join('')}
             </select>
           </div>
@@ -227,7 +227,7 @@ export const SessionsPage = {
               <label class="form-label" for="session-acad">Academic Session *</label>
               <select id="session-acad" class="form-control" required>
                 ${sessions.map(s => `
-                  <option value="${s.id}" ${s.id === activeSession?.id ? 'selected' : ''}>${Util.escapeHtml(s.name)}</option>
+                  <option value="${s.id}" ${s.id === activeSession?.id ? 'selected' : ''}>${Util.escapeHtml(s.session_label)}</option>
                 `).join('')}
               </select>
             </div>
@@ -235,7 +235,7 @@ export const SessionsPage = {
               <label class="form-label" for="session-sem">Semester *</label>
               <select id="session-sem" class="form-control" required>
                 ${semesters.map(s => `
-                  <option value="${s.id}" ${s.id === activeSemester?.id ? 'selected' : ''}>${Util.escapeHtml(s.name)}</option>
+                  <option value="${s.id}" ${s.id === activeSemester?.id ? 'selected' : ''}>${Util.escapeHtml(s.semester_name)}</option>
                 `).join('')}
               </select>
             </div>
@@ -277,7 +277,9 @@ export const SessionsPage = {
 
       document.getElementById('btn-cancel-session')?.addEventListener('click', () => Modal.close());
       document.getElementById('btn-save-session')?.addEventListener('click', async () => {
-        const courseId = document.getElementById('session-course').value;
+        const courseSelect = document.getElementById('session-course');
+        const courseId = courseSelect.value;
+        const courseText = courseSelect.options[courseSelect.selectedIndex]?.text || 'Session';
         const sessionId = document.getElementById('session-acad').value;
         const semesterId = document.getElementById('session-sem').value;
         const date = document.getElementById('session-date').value;
@@ -285,20 +287,24 @@ export const SessionsPage = {
         const end = document.getElementById('session-end').value;
         const grace = parseInt(document.getElementById('session-grace').value, 10) || 15;
 
-        if (!courseId || !date || !start || !end) {
+        if (!courseId || !sessionId || !semesterId || !date || !start || !end) {
           Notification.warning('Please fill in all required fields.');
           return;
         }
+
+        // Auto-generate session_title from course code + date (required by backend)
+        const sessionTitle = `${courseText.split(' —')[0]} - ${date}`;
 
         try {
           await Api.post('/sessions', {
             course_id: courseId,
             academic_session_id: sessionId,
             semester_id: semesterId,
+            session_title: sessionTitle,
             session_date: date,
             start_time: start,
             end_time: end,
-            grace_period_minutes: grace
+            lateness_threshold_minutes: grace
           });
 
           Notification.success('Attendance session created successfully!');

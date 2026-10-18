@@ -3,6 +3,124 @@ import { query } from '../config/db.js';
 export async function getDashboardStats(req, res, next) {
   try {
     const user = req.session.user;
+
+    // Student Dashboard Experience
+    if (user.role === 'student') {
+      const studentRes = await query(
+        `SELECT s.* FROM students s 
+         WHERE s.user_id = $1 OR s.id = $2 OR LOWER(s.email) = LOWER($3)
+         LIMIT 1`,
+        [user.id, user.studentId || -1, user.email]
+      );
+
+      const student = studentRes.rows[0];
+
+      if (!student) {
+        return res.json({
+          success: true,
+          data: {
+            isStudent: true,
+            student: {
+              fullName: user.fullName,
+              matricNumber: user.matricNumber || 'Pending Assignment',
+              academicLevel: user.academicLevel || '100',
+              barcodeValue: user.barcodeValue || 'CS100-0000',
+              email: user.email,
+              photoUrl: user.photoUrl || null,
+            },
+            stats: { totalSessions: 0, attended: 0, present: 0, late: 0, absent: 0, rate: 100 },
+            courses: [],
+            recentScans: [],
+          },
+        });
+      }
+
+      // Attendance records breakdown
+      const attendanceRes = await query(
+        `SELECT status, COUNT(*) as count
+         FROM attendance_records
+         WHERE student_id = $1
+         GROUP BY status`,
+        [student.id]
+      );
+
+      const statusCounts = { present: 0, late: 0, absent: 0, excused: 0 };
+      attendanceRes.rows.forEach((r) => {
+        statusCounts[r.status] = parseInt(r.count, 10);
+      });
+
+      const attended = statusCounts.present + statusCounts.late;
+      const totalClasses = attended + statusCounts.absent;
+      const rate = totalClasses > 0 ? Math.round((attended / totalClasses) * 100) : 100;
+
+      // Enrolled courses or cohort courses
+      const coursesRes = await query(
+        `SELECT DISTINCT c.id, c.course_code, c.course_title, c.academic_level, c.credit_units, c.semester_type,
+                (SELECT COUNT(*) FROM attendance_records ar
+                 JOIN attendance_sessions sess ON ar.attendance_session_id = sess.id
+                 WHERE ar.student_id = $1 AND sess.course_id = c.id AND ar.status IN ('present', 'late')) AS attended_count,
+                (SELECT COUNT(*) FROM attendance_sessions sess
+                 WHERE sess.course_id = c.id AND sess.status = 'closed') AS total_sessions
+         FROM courses c
+         LEFT JOIN student_course_enrollments e ON e.course_id = c.id AND e.student_id = $1
+         WHERE (e.student_id = $1 AND e.enrollment_status = 'enrolled')
+            OR (e.id IS NULL AND c.academic_level = $2 AND c.status = 'active')
+         ORDER BY c.course_code ASC`,
+        [student.id, student.academic_level]
+      );
+
+      // Recent attendance scans
+      const recentScansRes = await query(
+        `SELECT ar.id, ar.check_in_time, ar.status, ar.scan_method,
+                c.course_code, c.course_title, sess.session_title
+         FROM attendance_records ar
+         JOIN attendance_sessions sess ON ar.attendance_session_id = sess.id
+         JOIN courses c ON sess.course_id = c.id
+         WHERE ar.student_id = $1
+         ORDER BY ar.check_in_time DESC
+         LIMIT 10`,
+        [student.id]
+      );
+
+      return res.json({
+        success: true,
+        data: {
+          isStudent: true,
+          student: {
+            id: student.id,
+            fullName: student.full_name,
+            matricNumber: student.matric_number,
+            academicLevel: student.academic_level,
+            barcodeValue: student.barcode_value,
+            email: student.email,
+            phone: student.phone,
+            photoUrl: student.photo_url || user.photoUrl || null,
+            status: student.status,
+          },
+          stats: {
+            totalSessions: totalClasses,
+            attended,
+            present: statusCounts.present,
+            late: statusCounts.late,
+            absent: statusCounts.absent,
+            rate,
+          },
+          courses: coursesRes.rows.map((c) => {
+            const tot = parseInt(c.total_sessions, 10) || 0;
+            const att = parseInt(c.attended_count, 10) || 0;
+            return {
+              ...c,
+              attended_count: att,
+              total_sessions: tot,
+              course_rate: tot > 0 ? Math.round((att / tot) * 100) : 100,
+            };
+          }),
+          recentScans: recentScansRes.rows,
+        },
+      });
+    }
+
+    // Staff & Faculty Dashboard (HOD, Lecturer, Secretary)
     const isLecturer = user.role === 'lecturer';
 
     // 1. Students breakdown by Level (100, 200, 300, 400)
@@ -112,6 +230,7 @@ export async function getDashboardStats(req, res, next) {
     res.json({
       success: true,
       data: {
+        isStudent: false,
         studentsByLevel,
         totalCourses,
         activeOpenSessions,

@@ -77,10 +77,10 @@ export const LecturerAssignmentsPage = {
         <tr>
           <td style="font-weight: var(--font-weight-bold); color: var(--color-primary);">${Util.escapeHtml(a.course_code)}</td>
           <td>${Util.escapeHtml(a.course_title)}</td>
-          <td>${Util.getLevelBadge(a.level)}</td>
+          <td>${Util.getLevelBadge(a.academic_level || a.level)}</td>
           <td style="font-weight: var(--font-weight-medium);">${Util.escapeHtml(a.lecturer_name)}</td>
           <td>${a.is_coordinator ? '<span class="badge badge-accent">Course Coordinator</span>' : '<span class="badge badge-neutral">Instructor</span>'}</td>
-          <td>${Util.escapeHtml(a.academic_session_name || '—')}</td>
+          <td>${Util.escapeHtml(a.session_label || a.academic_session_name || '—')}</td>
           <td style="text-align: right;">
             <button class="btn btn-sm btn-danger btn-revoke" data-id="${a.id}" title="Revoke assignment">
               Revoke
@@ -115,7 +115,7 @@ export const LecturerAssignmentsPage = {
       const courses = coursesRes.data || [];
       const lecturers = (usersRes.data || []).filter(u => u.role === 'lecturer' || u.role === 'hod');
       const sessions = sessionsRes.data || [];
-      const activeSession = sessions.find(s => s.is_current) || sessions[0];
+      const activeSession = sessions.find(s => s.status === 'active' || s.is_current) || sessions[0];
 
       const content = `
         <form id="assign-form" class="space-y-4">
@@ -123,7 +123,7 @@ export const LecturerAssignmentsPage = {
             <label class="form-label" for="assign-course">Course *</label>
             <select id="assign-course" class="form-control" required>
               <option value="">Select Course...</option>
-              ${courses.map(c => `<option value="${c.id}">${Util.escapeHtml(c.course_code)} — ${Util.escapeHtml(c.course_title)} (${c.level}L)</option>`).join('')}
+              ${courses.map(c => `<option value="${c.id}">${Util.escapeHtml(c.course_code)} — ${Util.escapeHtml(c.course_title)} (${c.academic_level || c.level || '100'}L)</option>`).join('')}
             </select>
           </div>
 
@@ -131,14 +131,14 @@ export const LecturerAssignmentsPage = {
             <label class="form-label" for="assign-lecturer">Lecturer *</label>
             <select id="assign-lecturer" class="form-control" required>
               <option value="">Select Lecturer...</option>
-              ${lecturers.map(l => `<option value="${l.id}">${Util.escapeHtml(l.first_name + ' ' + l.last_name)} (@${l.username})</option>`).join('')}
+              ${lecturers.map(l => `<option value="${l.id}">${Util.escapeHtml(l.full_name || `${l.first_name || ''} ${l.last_name || ''}`.trim() || l.username)} (@${l.username})</option>`).join('')}
             </select>
           </div>
 
           <div class="form-group">
             <label class="form-label" for="assign-session">Academic Session *</label>
             <select id="assign-session" class="form-control" required>
-              ${sessions.map(s => `<option value="${s.id}" ${s.id === activeSession?.id ? 'selected' : ''}>${Util.escapeHtml(s.name)}</option>`).join('')}
+              ${sessions.map(s => `<option value="${s.id}" ${s.id === activeSession?.id ? 'selected' : ''}>${Util.escapeHtml(s.session_label || s.name)}</option>`).join('')}
             </select>
           </div>
 

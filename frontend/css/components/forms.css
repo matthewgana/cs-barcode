@@ -156,3 +156,45 @@ textarea.form-control {
 @media (max-width: 600px) {
   .form-row { grid-template-columns: 1fr; }
 }
+
+/* Password Input with Visibility Toggle */
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.password-input-wrapper .form-control {
+  padding-right: 2.75rem !important;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  user-select: none;
+  line-height: 1;
+  z-index: 2;
+}
+
+.password-toggle-btn:hover {
+  color: #38bdf8;
+  background-color: rgba(14, 165, 233, 0.12);
+}
+
+.password-toggle-btn:focus-visible {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 1px;
+}

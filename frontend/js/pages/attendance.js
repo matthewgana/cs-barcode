@@ -155,14 +155,14 @@ export const AttendancePage = {
     tbody.innerHTML = records.map(r => `
       <tr>
         <td style="font-family: var(--font-family-mono); font-weight: var(--font-weight-bold);">
-          ${Util.escapeHtml(r.reg_number)}
+          ${Util.escapeHtml(r.matric_number || r.reg_number)}
         </td>
         <td style="font-weight: var(--font-weight-medium);">
-          ${Util.escapeHtml(r.student_name || (r.first_name + ' ' + r.last_name))}
+          ${Util.escapeHtml(r.full_name || r.student_name || `${r.first_name || ''} ${r.last_name || ''}`.trim())}
         </td>
-        <td>${Util.getLevelBadge(r.level)}</td>
+        <td>${Util.getLevelBadge(r.academic_level || r.level)}</td>
         <td style="font-family: var(--font-family-mono); font-size: var(--font-size-xs);">
-          ${r.scanned_at ? Util.formatDateTime(r.scanned_at) : 'Not Scanned'}
+          ${(r.check_in_time || r.scanned_at) ? Util.formatDateTime(r.check_in_time || r.scanned_at) : 'Not Scanned'}
         </td>
         <td>${Util.getStatusBadge(r.status)}</td>
         <td><span class="badge badge-neutral">${Util.escapeHtml(r.scan_method || '—')}</span></td>
@@ -188,7 +188,7 @@ export const AttendancePage = {
     const content = `
       <form id="correction-form" class="space-y-4">
         <div>
-          <strong>Student:</strong> ${Util.escapeHtml(record.student_name || (record.first_name + ' ' + record.last_name))} (${record.reg_number})
+          <strong>Student:</strong> ${Util.escapeHtml(record.full_name || record.student_name || `${record.first_name || ''} ${record.last_name || ''}`.trim())} (${record.matric_number || record.reg_number})
         </div>
         <div>
           <strong>Current Status:</strong> ${Util.getStatusBadge(record.status)}
@@ -240,7 +240,8 @@ export const AttendancePage = {
       }
 
       try {
-        await Api.put(`/attendance/record/${record.id}/correct`, {
+        await Api.post('/attendance/correct', {
+          attendance_record_id: record.id,
           new_status: newStatus,
           reason
         });

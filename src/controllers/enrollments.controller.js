@@ -41,7 +41,9 @@ export async function getEnrollments(req, res, next) {
 
   const result = await query(
     `SELECT e.id, e.enrollment_status, e.created_at,
-            s.id AS student_id, s.matric_number, s.full_name AS student_name, s.academic_level, s.barcode_value,
+            s.id AS student_id, s.matric_number, s.matric_number AS reg_number,
+            s.full_name, s.full_name AS student_name,
+            s.academic_level, s.academic_level AS level, s.barcode_value,
             c.id AS course_id, c.course_code, c.course_title,
             a.session_label,
             sem.semester_name
@@ -63,10 +65,24 @@ export async function getEnrollments(req, res, next) {
 }
 
 export async function enrollStudent(req, res, next) {
-  const { student_id, course_id, academic_session_id, semester_id } = req.body;
+  let { student_id, course_id, academic_session_id, semester_id } = req.body;
 
-  if (!student_id || !course_id || !academic_session_id || !semester_id) {
-    return next(new AppError('student_id, course_id, academic_session_id, and semester_id are required.', 400));
+  if (!student_id || !course_id || !academic_session_id) {
+    return next(new AppError('student_id, course_id, and academic_session_id are required.', 400));
+  }
+
+  if (!semester_id) {
+    const semRes = await query(
+      `SELECT id FROM semesters WHERE academic_session_id = $1 AND status = 'active' ORDER BY id ASC LIMIT 1`,
+      [academic_session_id]
+    );
+    if (semRes.rowCount > 0) {
+      semester_id = semRes.rows[0].id;
+    } else {
+      const anySem = await query(`SELECT id FROM semesters WHERE academic_session_id = $1 ORDER BY id ASC LIMIT 1`, [academic_session_id]);
+      if (anySem.rowCount > 0) semester_id = anySem.rows[0].id;
+      else return next(new AppError('No semester found for this academic session.', 400));
+    }
   }
 
   // Check student and course existence
@@ -118,20 +134,35 @@ export async function enrollStudent(req, res, next) {
 }
 
 export async function bulkEnrollByLevel(req, res, next) {
-  const { academic_level, course_id, academic_session_id, semester_id } = req.body;
+  let { academic_level, level, course_id, academic_session_id, semester_id } = req.body;
+  const targetLevel = String(academic_level || level || '').replace(/\D/g, '');
 
-  if (!academic_level || !course_id || !academic_session_id || !semester_id) {
-    return next(new AppError('academic_level, course_id, academic_session_id, and semester_id are required.', 400));
+  if (!targetLevel || !course_id || !academic_session_id) {
+    return next(new AppError('academic_level (or level), course_id, and academic_session_id are required.', 400));
+  }
+
+  if (!semester_id) {
+    const semRes = await query(
+      `SELECT id FROM semesters WHERE academic_session_id = $1 AND status = 'active' ORDER BY id ASC LIMIT 1`,
+      [academic_session_id]
+    );
+    if (semRes.rowCount > 0) {
+      semester_id = semRes.rows[0].id;
+    } else {
+      const anySem = await query(`SELECT id FROM semesters WHERE academic_session_id = $1 ORDER BY id ASC LIMIT 1`, [academic_session_id]);
+      if (anySem.rowCount > 0) semester_id = anySem.rows[0].id;
+      else return next(new AppError('No semester found for this academic session.', 400));
+    }
   }
 
   // Find all active students at that academic level
   const studentsRes = await query(
     `SELECT id FROM students WHERE academic_level = $1 AND status = 'active'`,
-    [academic_level]
+    [targetLevel]
   );
 
   if (studentsRes.rowCount === 0) {
-    return next(new AppError(`No active students found in ${academic_level} Level.`, 404));
+    return next(new AppError(`No active students found in ${targetLevel} Level.`, 404));
   }
 
   let enrolledCount = 0;

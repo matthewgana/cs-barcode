@@ -114,14 +114,14 @@ export const EnrollmentsPage = {
 
       courseSelect.innerHTML = '<option value="">Select Course...</option>' +
         this.courses.map(c => `
-          <option value="${c.id}">${Util.escapeHtml(c.course_code)} — ${Util.escapeHtml(c.course_title)} (${c.level}L)</option>
+          <option value="${c.id}">${Util.escapeHtml(c.course_code)} — ${Util.escapeHtml(c.course_title)} (${c.academic_level || c.level || '100'}L)</option>
         `).join('');
 
-      const activeSession = this.sessions.find(s => s.is_current) || this.sessions[0];
+      const activeSession = this.sessions.find(s => s.status === 'active' || s.is_current) || this.sessions[0];
 
       sessionSelect.innerHTML = '<option value="">Select Academic Session...</option>' +
         this.sessions.map(s => `
-          <option value="${s.id}" ${s.id === activeSession?.id ? 'selected' : ''}>${Util.escapeHtml(s.name)}</option>
+          <option value="${s.id}" ${s.id === activeSession?.id ? 'selected' : ''}>${Util.escapeHtml(s.session_label || s.name)}</option>
         `).join('');
 
       this.selectedSessionId = activeSession ? activeSession.id : '';
@@ -197,10 +197,10 @@ export const EnrollmentsPage = {
       tbody.innerHTML = this.enrollments.map(e => `
         <tr>
           <td style="font-family: var(--font-family-mono); font-weight: var(--font-weight-bold);">
-            ${Util.escapeHtml(e.reg_number)}
+            ${Util.escapeHtml(e.matric_number || e.reg_number)}
           </td>
-          <td style="font-weight: var(--font-weight-medium);">${Util.escapeHtml(e.first_name + ' ' + e.last_name)}</td>
-          <td>${Util.getLevelBadge(e.level)}</td>
+          <td style="font-weight: var(--font-weight-medium);">${Util.escapeHtml(e.student_name || e.full_name || `${e.first_name || ''} ${e.last_name || ''}`.trim())}</td>
+          <td>${Util.getLevelBadge(e.academic_level || e.level)}</td>
           <td>${Util.escapeHtml(e.email || '—')}</td>
           <td style="font-size: var(--font-size-xs);">${Util.formatDate(e.created_at)}</td>
           <td style="text-align: right;">
@@ -242,7 +242,7 @@ export const EnrollmentsPage = {
             <select id="enroll-student-select" class="form-control" required>
               <option value="">Select Student...</option>
               ${students.map(s => `
-                <option value="${s.id}">${Util.escapeHtml(s.reg_number)} — ${Util.escapeHtml(s.first_name + ' ' + s.last_name)} (${s.level}L)</option>
+                <option value="${s.id}">${Util.escapeHtml(s.matric_number || s.reg_number)} — ${Util.escapeHtml(s.full_name || `${s.first_name || ''} ${s.last_name || ''}`.trim())} (${s.academic_level || s.level}L)</option>
               `).join('')}
             </select>
           </div>

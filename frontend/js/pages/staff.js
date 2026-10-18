@@ -127,8 +127,19 @@ export const StaffPage = {
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="staff-pass">Initial Password *</label>
-          <input type="password" id="staff-pass" class="form-control" value="Password123!" required />
+          <label class="form-label" for="staff-pass">Initial Password <span class="required">*</span></label>
+          <div class="password-input-wrapper">
+            <input type="password" id="staff-pass" class="form-control" value="Password123!" required />
+            <button
+              type="button"
+              class="password-toggle-btn"
+              data-toggle-password="staff-pass"
+              aria-label="Show password"
+              title="Show password"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
         </div>
       </form>
     `;
@@ -144,6 +155,9 @@ export const StaffPage = {
       footer,
       size: 'md'
     });
+
+    // Wire up password visibility toggle inside the modal
+    Util.initPasswordToggles();
 
     document.getElementById('btn-cancel-staff')?.addEventListener('click', () => Modal.close());
     document.getElementById('btn-save-staff')?.addEventListener('click', async () => {

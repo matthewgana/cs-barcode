@@ -37,6 +37,24 @@ export const Auth = {
     return currentUser?.role === 'secretary';
   },
 
+  isStudent() {
+    return currentUser?.role === 'student';
+  },
+
+  async register(registrationData) {
+    const res = await Api.post('/auth/register', registrationData);
+    const user = res?.user || res?.data;
+    if (user) {
+      currentUser = {
+        ...user,
+        fullName: user.fullName || user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username
+      };
+      window.dispatchEvent(new CustomEvent('auth:login', { detail: { user: currentUser } }));
+      return currentUser;
+    }
+    throw new Error('Registration failed');
+  },
+
   async checkAuth() {
     try {
       const res = await Api.get('/auth/me', null, { silent: true });

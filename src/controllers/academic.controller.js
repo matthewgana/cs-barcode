@@ -6,7 +6,8 @@ import { logAudit } from '../utils/audit.js';
 
 export async function getAcademicSessions(req, res, next) {
   const result = await query(
-    `SELECT id, session_label, start_date, end_date, status, created_at, updated_at
+    `SELECT id, session_label, session_label AS name, start_date, end_date, status, 
+            (status = 'active') AS is_current, created_at, updated_at
      FROM academic_sessions
      ORDER BY start_date DESC`
   );
@@ -14,44 +15,78 @@ export async function getAcademicSessions(req, res, next) {
 }
 
 export async function createAcademicSession(req, res, next) {
-  const { session_label, start_date, end_date, status = 'active' } = req.body;
+  const label = req.body.session_label || req.body.name;
+  const { start_date, end_date } = req.body;
+  const status = req.body.status || (req.body.is_current ? 'active' : 'active');
 
-  if (!session_label || !start_date || !end_date) {
-    return next(new AppError('session_label, start_date, and end_date are required.', 400));
+  if (!label || !start_date || !end_date) {
+    return next(new AppError('session_label (or name), start_date, and end_date are required.', 400));
   }
 
   if (new Date(end_date) < new Date(start_date)) {
     return next(new AppError('end_date must be on or after start_date.', 400));
   }
 
+  // If this session is active, mark previously active sessions as inactive
+  if (status === 'active') {
+    await query(`UPDATE academic_sessions SET status = 'inactive' WHERE status = 'active'`);
+  }
+
   const result = await query(
     `INSERT INTO academic_sessions (session_label, start_date, end_date, status)
      VALUES ($1, $2, $3, $4)
      RETURNING *`,
-    [session_label.trim(), start_date, end_date, status]
+    [label.trim(), start_date, end_date, status]
+  );
+
+  const newSession = result.rows[0];
+
+  // Auto-generate standard First and Second Semesters so lecturers can immediately create attendance sessions
+  const startDateObj = new Date(start_date);
+  const endDateObj = new Date(end_date);
+  const midTime = startDateObj.getTime() + (endDateObj.getTime() - startDateObj.getTime()) / 2;
+  const midDateStr = new Date(midTime).toISOString().split('T')[0];
+
+  await query(
+    `INSERT INTO semesters (academic_session_id, semester_name, start_date, end_date, status)
+     VALUES 
+       ($1, 'First Semester', $2, $3, 'active'),
+       ($1, 'Second Semester', $3, $4, 'upcoming')
+     ON CONFLICT DO NOTHING`,
+    [newSession.id, start_date, midDateStr, end_date]
   );
 
   await logAudit(req, {
     action: 'CREATE_ACADEMIC_SESSION',
     entityType: 'ACADEMIC_SESSION',
-    entityId: result.rows[0].id,
-    metadata: { session_label },
+    entityId: newSession.id,
+    metadata: { session_label: label },
   });
 
   res.status(201).json({
     success: true,
-    message: 'Academic session created successfully',
-    data: result.rows[0],
+    message: 'Academic session and semesters created successfully',
+    data: {
+      ...newSession,
+      name: newSession.session_label,
+      is_current: newSession.status === 'active',
+    },
   });
 }
 
 export async function updateAcademicSession(req, res, next) {
   const { id } = req.params;
-  const { session_label, start_date, end_date, status } = req.body;
+  const label = req.body.session_label || req.body.name;
+  const { start_date, end_date } = req.body;
+  const status = req.body.status || (req.body.is_current ? 'active' : undefined);
 
   const existingRes = await query(`SELECT * FROM academic_sessions WHERE id = $1`, [id]);
   if (existingRes.rowCount === 0) {
     return next(new AppError('Academic session not found.', 404));
+  }
+
+  if (status === 'active') {
+    await query(`UPDATE academic_sessions SET status = 'inactive' WHERE id != $1 AND status = 'active'`, [id]);
   }
 
   const result = await query(
@@ -63,20 +98,24 @@ export async function updateAcademicSession(req, res, next) {
          updated_at = CURRENT_TIMESTAMP
      WHERE id = $5
      RETURNING *`,
-    [session_label ? session_label.trim() : null, start_date || null, end_date || null, status || null, id]
+    [label ? label.trim() : null, start_date || null, end_date || null, status || null, id]
   );
 
   await logAudit(req, {
     action: 'UPDATE_ACADEMIC_SESSION',
     entityType: 'ACADEMIC_SESSION',
     entityId: id,
-    metadata: { session_label, status },
+    metadata: { session_label: label, status },
   });
 
   res.json({
     success: true,
     message: 'Academic session updated successfully',
-    data: result.rows[0],
+    data: {
+      ...result.rows[0],
+      name: result.rows[0].session_label,
+      is_current: result.rows[0].status === 'active',
+    },
   });
 }
 
@@ -95,8 +134,9 @@ export async function getSemesters(req, res, next) {
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const result = await query(
-    `SELECT s.id, s.academic_session_id, s.semester_name, s.start_date, s.end_date, s.status,
-            s.created_at, s.updated_at, a.session_label
+    `SELECT s.id, s.academic_session_id, s.semester_name, s.semester_name AS name,
+            s.start_date, s.end_date, s.status, (s.status = 'active') AS is_current,
+            s.created_at, s.updated_at, a.session_label, a.session_label AS academic_session_name
      FROM semesters s
      JOIN academic_sessions a ON s.academic_session_id = a.id
      ${whereClause}
@@ -108,10 +148,12 @@ export async function getSemesters(req, res, next) {
 }
 
 export async function createSemester(req, res, next) {
-  const { academic_session_id, semester_name, start_date, end_date, status = 'active' } = req.body;
+  const name = req.body.semester_name || req.body.name;
+  const { academic_session_id, start_date, end_date } = req.body;
+  const status = req.body.status || (req.body.is_current ? 'active' : 'active');
 
-  if (!academic_session_id || !semester_name || !start_date || !end_date) {
-    return next(new AppError('academic_session_id, semester_name, start_date, and end_date are required.', 400));
+  if (!academic_session_id || !name || !start_date || !end_date) {
+    return next(new AppError('academic_session_id, semester_name (or name), start_date, and end_date are required.', 400));
   }
 
   if (new Date(end_date) < new Date(start_date)) {
@@ -128,20 +170,24 @@ export async function createSemester(req, res, next) {
     `INSERT INTO semesters (academic_session_id, semester_name, start_date, end_date, status)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
-    [academic_session_id, semester_name.trim(), start_date, end_date, status]
+    [academic_session_id, name.trim(), start_date, end_date, status]
   );
 
   await logAudit(req, {
     action: 'CREATE_SEMESTER',
     entityType: 'SEMESTER',
     entityId: result.rows[0].id,
-    metadata: { semester_name, academic_session_id },
+    metadata: { semester_name: name, academic_session_id },
   });
 
   res.status(201).json({
     success: true,
     message: 'Semester created successfully',
-    data: result.rows[0],
+    data: {
+      ...result.rows[0],
+      name: result.rows[0].semester_name,
+      is_current: result.rows[0].status === 'active',
+    },
   });
 }
 

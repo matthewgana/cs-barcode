@@ -37,7 +37,7 @@ export async function getStudents(req, res, next) {
   const totalCount = parseInt(countQuery.rows[0].count, 10);
 
   const result = await query(
-    `SELECT id, matric_number, full_name, academic_level, barcode_value, email, phone,
+    `SELECT id, matric_number, full_name, academic_level, barcode_value, email, phone, photo_url,
             admission_year, status, created_at, updated_at
      FROM students
      ${whereClause}
@@ -57,7 +57,7 @@ export async function getStudents(req, res, next) {
 export async function getStudentById(req, res, next) {
   const { id } = req.params;
   const result = await query(
-    `SELECT id, matric_number, full_name, academic_level, barcode_value, email, phone,
+    `SELECT id, matric_number, full_name, academic_level, barcode_value, email, phone, photo_url,
             admission_year, status, created_at, updated_at
      FROM students WHERE id = $1`,
     [id]
@@ -131,7 +131,7 @@ export async function createStudent(req, res, next) {
 
 export async function updateStudent(req, res, next) {
   const { id } = req.params;
-  const { matric_number, full_name, academic_level, email, phone, admission_year, status } = req.body;
+  const { matric_number, full_name, academic_level, email, phone, photo_url, admission_year, status } = req.body;
 
   const existingRes = await query(`SELECT * FROM students WHERE id = $1`, [id]);
   if (existingRes.rowCount === 0) {
@@ -149,10 +149,11 @@ export async function updateStudent(req, res, next) {
          academic_level = COALESCE($3, academic_level),
          email = COALESCE($4, email),
          phone = COALESCE($5, phone),
-         admission_year = COALESCE($6, admission_year),
-         status = COALESCE($7, status),
+         photo_url = COALESCE($6, photo_url),
+         admission_year = COALESCE($7, admission_year),
+         status = COALESCE($8, status),
          updated_at = CURRENT_TIMESTAMP
-     WHERE id = $8
+     WHERE id = $9
      RETURNING *`,
     [
       matric_number ? matric_number.trim().toUpperCase() : null,
@@ -160,6 +161,7 @@ export async function updateStudent(req, res, next) {
       academic_level || null,
       email ? email.trim().toLowerCase() : null,
       phone ? phone.trim() : null,
+      photo_url !== undefined ? photo_url : null,
       admission_year ? parseInt(admission_year, 10) : null,
       status || null,
       id,
@@ -211,7 +213,7 @@ export async function regenerateBarcode(req, res, next) {
 
 export async function getStudentBarcodeImage(req, res, next) {
   const { id } = req.params;
-  const { format = 'svg' } = req.query;
+  const { format = 'svg', type = 'code128' } = req.query;
 
   const result = await query(`SELECT barcode_value, matric_number, full_name FROM students WHERE id = $1`, [id]);
   if (result.rowCount === 0) {
@@ -222,11 +224,11 @@ export async function getStudentBarcodeImage(req, res, next) {
 
   try {
     if (format === 'png') {
-      const pngBuffer = await generateBarcodeImage(barcode_value, 'png');
+      const pngBuffer = await generateBarcodeImage(barcode_value, 'png', type);
       res.setHeader('Content-Type', 'image/png');
       return res.send(pngBuffer);
     } else {
-      const svg = await generateBarcodeImage(barcode_value, 'svg');
+      const svg = await generateBarcodeImage(barcode_value, 'svg', type);
       res.setHeader('Content-Type', 'image/svg+xml');
       return res.send(svg);
     }

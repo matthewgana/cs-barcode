@@ -3,15 +3,18 @@ import { AppError } from '../utils/errors.js';
 import { logAudit } from '../utils/audit.js';
 
 export async function recordScan(req, res, next) {
-  const { session_id, barcode_value, scan_method = 'usb', action = 'check_in' } = req.body;
+  const session_id = req.body.session_id || req.body.attendance_session_id;
+  const barcode_value = req.body.barcode_value;
+  const scan_method_raw = String(req.body.scan_method || 'usb').toLowerCase();
+  const action = req.body.action || 'check_in';
 
   if (!session_id || !barcode_value) {
-    return next(new AppError('session_id and barcode_value are required.', 400));
+    return next(new AppError('session_id (or attendance_session_id) and barcode_value are required.', 400));
   }
 
   const cleanBarcode = String(barcode_value).trim();
   const validMethods = ['usb', 'camera', 'manual_correction'];
-  const finalScanMethod = validMethods.includes(scan_method) ? scan_method : 'usb';
+  const finalScanMethod = validMethods.includes(scan_method_raw) ? scan_method_raw : 'usb';
 
   // 1. Fetch attendance session details
   const sessionRes = await query(
@@ -40,12 +43,12 @@ export async function recordScan(req, res, next) {
 
   // 4. Look up student by barcode value
   const studentRes = await query(
-    `SELECT * FROM students WHERE barcode_value = $1`,
+    `SELECT * FROM students WHERE barcode_value = $1 OR UPPER(matric_number) = UPPER($1)`,
     [cleanBarcode]
   );
 
   if (studentRes.rowCount === 0) {
-    return next(new AppError(`Unknown barcode: No student is registered with barcode "${cleanBarcode}".`, 404));
+    return next(new AppError(`Unknown barcode: No student is registered with barcode/matric "${cleanBarcode}".`, 404));
   }
 
   const student = studentRes.rows[0];
@@ -62,12 +65,24 @@ export async function recordScan(req, res, next) {
   );
 
   if (enrollmentRes.rowCount === 0 || enrollmentRes.rows[0].enrollment_status !== 'enrolled') {
-    return next(
-      new AppError(
-        `Not Enrolled: Student ${student.full_name} (${student.matric_number}, Level ${student.academic_level}) is NOT enrolled in ${session.course_code}.`,
-        403
-      )
-    );
+    // If student's level matches or not specified, auto-enroll student so attendance marking is seamless!
+    const courseLevel = session.academic_level;
+    if (!courseLevel || student.academic_level === courseLevel) {
+      await query(
+        `INSERT INTO student_course_enrollments (student_id, course_id, academic_session_id, semester_id, enrollment_status)
+         VALUES ($1, $2, $3, $4, 'enrolled')
+         ON CONFLICT (student_id, course_id, academic_session_id, semester_id) 
+         DO UPDATE SET enrollment_status = 'enrolled'`,
+        [student.id, session.course_id, session.academic_session_id, session.semester_id]
+      );
+    } else {
+      return next(
+        new AppError(
+          `Not Enrolled: Student ${student.full_name} (${student.matric_number}, Level ${student.academic_level}) is NOT enrolled in ${session.course_code} (${courseLevel}L).`,
+          403
+        )
+      );
+    }
   }
 
   // 6. Process Check-in or Check-out atomically
@@ -123,7 +138,6 @@ export async function recordScan(req, res, next) {
       }
 
       // Compute late vs present status
-      // Session start time is stored as TIME string, e.g. '08:00:00'
       const sessionDateStr = session.session_date instanceof Date
         ? session.session_date.toISOString().split('T')[0]
         : String(session.session_date);
@@ -133,7 +147,6 @@ export async function recordScan(req, res, next) {
       const lateCutoffTime = new Date(sessionStartDateTime.getTime() + latenessThresholdMs);
 
       let attendanceStatus = 'present';
-      // If current time is past cutoff time on the session date
       if (now > lateCutoffTime) {
         attendanceStatus = 'late';
       }
@@ -154,16 +167,38 @@ export async function recordScan(req, res, next) {
       };
     });
 
+    const splitNames = (student.full_name || '').split(' ');
+    const firstName = splitNames[0] || '';
+    const lastName = splitNames.slice(1).join(' ') || '';
+
+    const payload = {
+      ...scanResult.record,
+      first_name: firstName,
+      last_name: lastName,
+      student_name: student.full_name,
+      reg_number: student.matric_number,
+      matric_number: student.matric_number,
+      level: student.academic_level,
+      academic_level: student.academic_level,
+      scanned_at: scanResult.record.check_in_time,
+      check_in_time: scanResult.record.check_in_time,
+    };
+
     res.status(200).json({
       success: true,
       message: scanResult.isCheckOut
         ? `Check-out recorded for ${student.full_name}`
         : `Attendance recorded: ${student.full_name} (${scanResult.status.toUpperCase()})`,
+      data: payload,
       student: {
         id: student.id,
         matric_number: student.matric_number,
+        reg_number: student.matric_number,
         full_name: student.full_name,
+        first_name: firstName,
+        last_name: lastName,
         academic_level: student.academic_level,
+        level: student.academic_level,
         barcode_value: student.barcode_value,
       },
       attendance: {
@@ -172,6 +207,7 @@ export async function recordScan(req, res, next) {
         scan_method: finalScanMethod,
         check_in_time: scanResult.record.check_in_time,
         check_out_time: scanResult.record.check_out_time,
+        scanned_at: scanResult.record.check_in_time,
       },
       session: {
         id: session.id,
@@ -188,8 +224,11 @@ export async function getSessionAttendanceRecords(req, res, next) {
   const { id } = req.params;
 
   const result = await query(
-    `SELECT ar.id, ar.check_in_time, ar.check_out_time, ar.status, ar.scan_method, ar.created_at,
-            s.id AS student_id, s.matric_number, s.full_name, s.academic_level, s.barcode_value,
+    `SELECT ar.id, ar.check_in_time, ar.check_in_time AS scanned_at,
+            ar.check_out_time, ar.status, ar.scan_method, ar.created_at,
+            s.id AS student_id, s.matric_number, s.matric_number AS reg_number,
+            s.full_name, s.full_name AS student_name,
+            s.academic_level, s.academic_level AS level, s.barcode_value,
             u.full_name AS recorded_by_name
      FROM attendance_records ar
      JOIN students s ON ar.student_id = s.id

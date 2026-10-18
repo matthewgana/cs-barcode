@@ -7,6 +7,7 @@ import { Auth } from '../core/auth.js';
 import { Util } from '../core/utilities.js';
 import { Modal } from '../core/modal.js';
 import { Notification } from '../core/notifications.js';
+import { IdCardPrinter } from '../components/id-card-printer.js';
 
 export const StudentsPage = {
   students: [],
@@ -177,7 +178,12 @@ export const StudentsPage = {
             ${Util.escapeHtml(reg)}
           </td>
           <td style="font-weight: var(--font-weight-medium);">
-            ${Util.escapeHtml(name)}
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="width: 28px; height: 28px; border-radius: 6px; background: #e0f2fe; color: #0369a1; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; overflow: hidden; flex-shrink: 0; border: 1px solid #bae6fd;">
+                ${s.photo_url ? `<img src="${s.photo_url}" alt="" style="width: 100%; height: 100%; object-fit: cover;" />` : (name[0] || 'S').toUpperCase()}
+              </div>
+              <span>${Util.escapeHtml(name)}</span>
+            </div>
           </td>
           <td>${Util.getLevelBadge(level)}</td>
           <td style="color: var(--color-text-secondary);">${Util.escapeHtml(s.email || '—')}</td>
@@ -259,52 +265,104 @@ export const StudentsPage = {
     });
   },
 
-  showStudentIdCard(student) {
-    const reg = student.matric_number || student.reg_number || '—';
-    const name = student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Student';
-    const level = student.academic_level || student.level || '100';
-    const initial = (name[0] || 'S').toUpperCase();
+  showStudentIdCard(rawStudent) {
+    const s = IdCardPrinter.normalizeStudent(rawStudent);
+    const barcodeUrl = s.id ? `/api/students/${s.id}/barcode?format=svg&type=code128` : '';
 
     const content = `
-      <div class="student-id-card">
-        <div class="id-card-header">
-          <div class="id-card-institution">University Computer Science</div>
-          <div class="id-card-dept">DEPARTMENT OF COMPUTER SCIENCE</div>
-        </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+        <div class="student-id-card" style="box-shadow: 0 10px 30px rgba(0,0,0,0.12);">
+          <!-- Holographic strip -->
+          <div class="card-holo-strip"></div>
 
-        <div class="id-card-avatar">
-          ${initial}
-        </div>
+          <!-- Dark navy banner -->
+          <div class="id-card-banner">
+            <div class="id-card-banner-seal">🎓</div>
+            <div class="id-card-banner-text">
+              <div class="id-card-banner-university">${Util.escapeHtml(s.university)}</div>
+              <div class="id-card-banner-dept">${Util.escapeHtml(s.department)}</div>
+              <div class="id-card-banner-type">Student Identity Badge</div>
+            </div>
+          </div>
 
-        <div class="id-card-name">${Util.escapeHtml(name)}</div>
-        <div class="id-card-reg">${Util.escapeHtml(reg)}</div>
+          <!-- Body -->
+          <div class="id-card-body">
+            <div class="id-card-photo-col">
+              <div class="id-card-avatar">
+                ${s.photoUrl ? `
+                  <img src="${s.photoUrl}" alt="${Util.escapeHtml(s.fullName)}" class="id-card-avatar-img" onerror="this.style.display='none'; this.parentElement.innerText='${s.initials}'" />
+                ` : s.initials}
+              </div>
+              <div class="id-card-status-chip">● ACTIVE</div>
+            </div>
+            <div class="id-card-info-col">
+              <div class="id-card-name">${Util.escapeHtml(s.fullName)}</div>
+              <div class="id-card-reg">${Util.escapeHtml(s.matricNumber)}</div>
+              <div class="id-card-fields">
+                <div class="id-card-field">
+                  <span class="id-card-field-label">Level</span>
+                  <span class="id-card-field-value">${s.academicLevel} Level</span>
+                </div>
+                <div class="id-card-field">
+                  <span class="id-card-field-label">Programme</span>
+                  <span class="id-card-field-value">${Util.escapeHtml(s.programme)}</span>
+                </div>
+                <div class="id-card-field">
+                  <span class="id-card-field-label">Admission</span>
+                  <span class="id-card-field-value">${s.admissionYear}</span>
+                </div>
+                <div class="id-card-field">
+                  <span class="id-card-field-label">Valid Thru</span>
+                  <span class="id-card-field-value">${s.validThru}</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-        <div class="id-card-meta">
-          <span>${Util.getLevelBadge(level)}</span>
-          <span>Status: Active</span>
-        </div>
+          <!-- Divider -->
+          <div class="id-card-divider"></div>
 
-        <div class="id-card-barcode-container">
-          <img
-            src="/api/students/${student.id}/barcode?format=svg"
-            alt="Barcode for ${Util.escapeHtml(reg)}"
-            class="id-card-barcode-img"
-          />
-          <div class="id-card-barcode-val">${Util.escapeHtml(student.barcode_value)}</div>
+          <!-- Barcode Zone -->
+          <div class="id-card-barcode-zone">
+            <div class="id-card-barcode-label">Lecture Attendance Barcode (Code 128)</div>
+            <div class="id-card-barcode-container">
+              ${barcodeUrl ? `
+                <img
+                  src="${barcodeUrl}"
+                  alt="Barcode"
+                  class="id-card-barcode-img"
+                  onerror="this.style.display='none'"
+                />
+              ` : `<div style="padding:8px;font-family:monospace;font-size:1.1rem;letter-spacing:4px;color:#475569">||| | |||| | || ||| |</div>`}
+              <div class="id-card-barcode-val">${Util.escapeHtml(s.barcodeValue)}</div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="id-card-footer">
+            <span class="id-card-footer-text">Official Academic Credential</span>
+            <span class="id-card-footer-text" style="color: #38bdf8; font-family: monospace;">AUTH: VERIFIED</span>
+          </div>
         </div>
       </div>
     `;
 
     const footer = `
-      <button class="btn btn-outline" onclick="window.print()">🖨️ Print ID Card</button>
-      <button class="btn btn-primary" id="btn-modal-close-id">Done</button>
+      <button class="btn btn-primary" id="btn-modal-print-badge">
+        <span>🖨️</span> Print CR80 Badge Sheet
+      </button>
+      <button class="btn btn-outline" id="btn-modal-close-id">Done</button>
     `;
 
     Modal.show({
-      title: 'Student ID & Attendance Barcode',
+      title: 'Official Student Identity & Barcode Badge',
       content,
       footer,
       size: 'md'
+    });
+
+    document.getElementById('btn-modal-print-badge')?.addEventListener('click', () => {
+      IdCardPrinter.printStudentIdCard(s);
     });
 
     document.getElementById('btn-modal-close-id')?.addEventListener('click', () => Modal.close());

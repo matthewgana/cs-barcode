@@ -69,17 +69,24 @@ The database schema (`src/db/schema.sql`) implements relational integrity with f
 
 ---
 
-## 🔑 Demo Credentials
+## 🔑 Authentication & Multi-Role User Management
 
-All test accounts share the password: `Password123!`
+The system features a professional, production-ready authentication architecture with secure session management (`connect-pg-simple`), bcrypt password hashing, and role-based access control (RBAC):
 
-| Role | Username | Full Name | Access Scope |
-| :--- | :--- | :--- | :--- |
-| **HOD** | `hod` | Prof. Babatunde Lawal | Full Department Administrative Control |
-| **Lecturer** | `lecturer1` | Dr. Adebayo Ogunlesi | CSC 201 & CSC 301 Sessions & Scanning |
-| **Lecturer** | `lecturer2` | Dr. Chioma Okonkwo | CSC 101 & CSC 203 Sessions & Scanning |
-| **Lecturer** | `lecturer3` | Mr. Faruq Abubakar | CSC 303 & CSC 401 Sessions & Scanning |
-| **Secretary** | `secretary` | Mrs. Funmilayo Adeleke | Student Registration, Enrollments, Reports |
+### 1. Self-Registration & Account Creation (`/api/auth/register`)
+Users can register directly through the **Create Account** tab on the authentication portal:
+- **Students**: Register with Full Name, Email, Matriculation Number (e.g. `U/22/CS/042`), and Academic Cohort (`100L`, `200L`, `300L`, `400L`). Upon registration:
+  - An academic profile is linked or provisioned.
+  - A unique **Code 128 attendance barcode** (`CS{level}-{suffix}`) is auto-generated and attached to their digital student ID card.
+  - Students can log in using either their **Matriculation Number**, **Email**, or **Username**.
+  - Students access a dedicated portal featuring their **Digital Barcode Identity Badge**, printable ID card, course enrollment attendance rates, and attendance logs.
+- **Lecturers**: Register with Full Name, Staff Email, Username, and Password. Access lecture session creation, live webcam/USB barcode scanning, lateness marking, and session finalization.
+- **Secretary**: Register with Staff credentials to manage departmental cohorts, course enrollments, student records, and generate PDF/CSV attendance reports.
+- **HOD (Head of Department)**: Department administrative lead with full department overview, curriculum management, staff allocation, audit trails, and manual attendance correction overrides.
+
+### 2. Flexible Sign-In (`/api/auth/login`)
+- Supports logging in with **Username**, **Email Address**, or student **Matriculation Number**.
+- Strict validation, session fixation protection, and rate limiting against brute-force attempts.
 
 ---
 

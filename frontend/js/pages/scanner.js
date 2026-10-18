@@ -378,13 +378,20 @@ export const ScannerPage = {
         scan_method: method
       }, { silent: true });
 
-      const record = res.data;
+      const record = res.data || res.attendance || {};
       const student = res.student || {
-        first_name: record.first_name,
-        last_name: record.last_name,
-        reg_number: record.reg_number,
-        level: record.level
+        full_name: record.student_name || `${record.first_name || ''} ${record.last_name || ''}`.trim(),
+        first_name: record.first_name || '',
+        last_name: record.last_name || '',
+        matric_number: record.matric_number || record.reg_number,
+        academic_level: record.academic_level || record.level
       };
+
+      const studentName = student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Student';
+      const matricNum = student.matric_number || student.reg_number || 'Matric';
+      const studentLvl = student.academic_level || student.level || '100';
+      const scanTime = record.scanned_at || record.check_in_time || new Date().toISOString();
+      const status = record.status || res.attendance?.status || 'present';
 
       // Play success audio
       Util.playBeep('success');
@@ -392,17 +399,22 @@ export const ScannerPage = {
       // Show banner
       this.showFeedback({
         type: 'success',
-        title: `CHECKED IN: ${student.first_name} ${student.last_name}`,
-        desc: `${student.reg_number} (${student.level}L) • Status: ${record.status.toUpperCase()} • Time: ${Util.formatTime(record.scanned_at)}`
+        title: `CHECKED IN: ${studentName}`,
+        desc: `${matricNum} (${studentLvl}L) • Status: ${status.toUpperCase()} • Time: ${Util.formatTime(scanTime)}`
       });
 
       // Prepend to feed
       this.scannedList.unshift({
         ...record,
-        first_name: student.first_name,
-        last_name: student.last_name,
-        reg_number: student.reg_number,
-        level: student.level,
+        full_name: studentName,
+        student_name: studentName,
+        matric_number: matricNum,
+        reg_number: matricNum,
+        level: studentLvl,
+        academic_level: studentLvl,
+        scanned_at: scanTime,
+        check_in_time: scanTime,
+        status: status,
         scan_method: method
       });
 
@@ -477,9 +489,9 @@ export const ScannerPage = {
     feed.innerHTML = this.scannedList.map(item => `
       <div class="scan-feed-item">
         <div>
-          <div class="scan-feed-student">${Util.escapeHtml(item.first_name + ' ' + item.last_name)}</div>
+          <div class="scan-feed-student">${Util.escapeHtml(item.student_name || item.full_name || `${item.first_name || ''} ${item.last_name || ''}`.trim())}</div>
           <div class="scan-feed-meta">
-            <code>${Util.escapeHtml(item.reg_number)}</code> &bull; ${item.level} Level &bull; ${Util.formatTime(item.scanned_at)}
+            <code>${Util.escapeHtml(item.matric_number || item.reg_number)}</code> &bull; ${item.academic_level || item.level} Level &bull; ${Util.formatTime(item.check_in_time || item.scanned_at)}
           </div>
         </div>
         <div style="display: flex; align-items: center; gap: var(--space-2);">

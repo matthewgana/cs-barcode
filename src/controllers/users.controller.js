@@ -42,8 +42,8 @@ export async function createUser(req, res, next) {
     return next(new AppError('All fields (full_name, username, email, password, role) are required.', 400));
   }
 
-  if (!['hod', 'lecturer', 'secretary'].includes(role)) {
-    return next(new AppError('Invalid role specified. Must be hod, lecturer, or secretary.', 400));
+  if (!['hod', 'lecturer', 'secretary', 'student'].includes(role)) {
+    return next(new AppError('Invalid role specified. Must be hod, lecturer, secretary, or student.', 400));
   }
 
   const existing = await query(

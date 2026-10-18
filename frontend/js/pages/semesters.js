@@ -78,13 +78,13 @@ export const SemestersPage = {
 
       tbody.innerHTML = this.semesters.map(s => `
         <tr>
-          <td style="font-weight: var(--font-weight-bold);">${Util.escapeHtml(s.name)}</td>
-          <td>${Util.escapeHtml(s.academic_session_name || '—')}</td>
+          <td style="font-weight: var(--font-weight-bold);">${Util.escapeHtml(s.semester_name || s.name)}</td>
+          <td>${Util.escapeHtml(s.session_label || s.academic_session_name || '—')}</td>
           <td>${Util.formatDate(s.start_date)}</td>
           <td>${Util.formatDate(s.end_date)}</td>
-          <td>${s.is_current ? '<span class="badge badge-success">Current Active</span>' : '<span class="badge badge-neutral">Inactive</span>'}</td>
+          <td>${(s.status === 'active' || s.is_current) ? '<span class="badge badge-success">Current Active</span>' : '<span class="badge badge-neutral">Inactive</span>'}</td>
           <td style="text-align: right;">
-            ${!s.is_current && Auth.hasRole('hod') ? `
+            ${(s.status !== 'active' && !s.is_current) && Auth.hasRole('hod') ? `
               <button class="btn btn-sm btn-outline btn-set-current-sem" data-id="${s.id}">
                 Set as Active
               </button>
@@ -96,7 +96,7 @@ export const SemestersPage = {
       tbody.querySelectorAll('.btn-set-current-sem').forEach(btn => {
         btn.addEventListener('click', async () => {
           try {
-            await Api.put(`/academic/semesters/${btn.dataset.id}`, { is_current: true });
+            await Api.patch(`/academic/semesters/${btn.dataset.id}`, { status: 'active' });
             Notification.success('Active semester updated!');
             this.loadSemesters();
           } catch {}
@@ -121,7 +121,7 @@ export const SemestersPage = {
           <div class="form-group">
             <label class="form-label" for="sem-session">Academic Session *</label>
             <select id="sem-session" class="form-control" required>
-              ${sessions.map(s => `<option value="${s.id}">${Util.escapeHtml(s.name)}</option>`).join('')}
+              ${sessions.map(s => `<option value="${s.id}">${Util.escapeHtml(s.session_label || s.name)}</option>`).join('')}
             </select>
           </div>
           <div class="grid grid-2" style="gap: var(--space-4);">
@@ -163,11 +163,12 @@ export const SemestersPage = {
 
         try {
           await Api.post('/academic/semesters', {
+            semester_name: name,
             name,
             academic_session_id: sessionId,
             start_date: start,
             end_date: end,
-            is_current: false
+            status: 'active'
           });
 
           Notification.success('Semester created!');

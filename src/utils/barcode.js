@@ -1,33 +1,29 @@
 import bwipjs from 'bwip-js';
 
 /**
- * Generates an SVG string or PNG buffer for a Code 128 barcode
+ * Generates an SVG string or PNG buffer for a barcode or QR code
  * @param {string} text - The barcode text
  * @param {string} format - 'svg' | 'png'
+ * @param {string} type - 'code128' | 'qrcode'
  * @returns {Promise<string|Buffer>}
  */
-export async function generateBarcodeImage(text, format = 'svg') {
-  if (format === 'svg') {
-    return bwipjs.toSVG({
-      bcid: 'code128',
-      text,
-      scale: 3,
-      height: 15,
-      includetext: true,
-      textxalign: 'center',
-      textsize: 10,
-    });
-  }
-
-  return bwipjs.toBuffer({
-    bcid: 'code128',
+export async function generateBarcodeImage(text, format = 'svg', type = 'code128') {
+  const bcid = type === 'qrcode' ? 'qrcode' : 'code128';
+  const options = {
+    bcid,
     text,
-    scale: 3,
-    height: 15,
-    includetext: true,
+    scale: type === 'qrcode' ? 4 : 3,
+    height: type === 'qrcode' ? 20 : 15,
+    includetext: type !== 'qrcode',
     textxalign: 'center',
     textsize: 10,
-  });
+  };
+
+  if (format === 'svg') {
+    return bwipjs.toSVG(options);
+  }
+
+  return bwipjs.toBuffer(options);
 }
 
 /**

@@ -14,21 +14,22 @@ export const Sidebar = {
     const isHod = role === 'hod';
     const isLecturer = role === 'lecturer';
     const isSecretary = role === 'secretary';
+    const isStudent = role === 'student';
 
     const navItems = [
       {
-        section: 'MAIN',
+        section: isStudent ? 'STUDENT PORTAL' : 'MAIN',
         items: [
-          { route: 'dashboard', label: 'Dashboard', icon: '📊', show: true }
+          { route: 'dashboard', label: isStudent ? 'Digital ID & Overview' : 'Dashboard', icon: isStudent ? '🪪' : '📊', show: true }
         ]
       },
       {
-        section: 'ATTENDANCE',
+        section: isStudent ? 'MY RECORDS' : 'ATTENDANCE',
         items: [
           { route: 'scanner', label: 'Live Scanner', icon: '📷', show: isHod || isLecturer },
-          { route: 'sessions', label: 'Attendance Sessions', icon: '⏱️', show: true },
-          { route: 'attendance', label: 'Attendance Records', icon: '📋', show: true },
-          { route: 'reports', label: 'Reports & Analytics', icon: '📈', show: true }
+          { route: 'sessions', label: 'Attendance Sessions', icon: '⏱️', show: !isStudent },
+          { route: 'attendance', label: isStudent ? 'My Attendance' : 'Attendance Records', icon: '📋', show: true },
+          { route: 'reports', label: 'Reports & Analytics', icon: '📈', show: !isStudent }
         ]
       },
       {
@@ -47,6 +48,12 @@ export const Sidebar = {
           { route: 'lecturer-assignments', label: 'Lecturer Allocation', icon: '👨‍🏫', show: isHod },
           { route: 'staff', label: 'Staff Accounts', icon: '👥', show: isHod },
           { route: 'audit', label: 'Audit Trail', icon: '🛡️', show: isHod }
+        ]
+      },
+      {
+        section: 'ACCOUNT',
+        items: [
+          { route: 'profile', label: isStudent ? 'Profile & Passport' : 'My Profile & Settings', icon: '👤', show: true }
         ]
       }
     ];
@@ -89,13 +96,15 @@ export const Sidebar = {
         </div>
 
         <div class="sidebar-footer">
-          <div class="sidebar-user">
-            <div class="sidebar-user-avatar">${(user.fullName || user.username || 'U')[0].toUpperCase()}</div>
+          <a href="#/profile" class="sidebar-user" style="text-decoration: none; color: inherit; display: flex; align-items: center; width: 100%;" title="Edit Profile & Passport">
+            <div class="sidebar-user-avatar" style="overflow: hidden; flex-shrink: 0;">
+              ${user.photoUrl ? `<img src="${user.photoUrl}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;" />` : (user.fullName || user.username || 'U')[0].toUpperCase()}
+            </div>
             <div class="sidebar-user-info">
               <div class="sidebar-user-name">${Util.escapeHtml(user.fullName || user.username)}</div>
-              <div class="sidebar-user-role">${Util.escapeHtml(user.role.toUpperCase())}</div>
+              <div class="sidebar-user-role">${Util.escapeHtml(user.role.toUpperCase())} &bull; Edit &rarr;</div>
             </div>
-          </div>
+          </a>
         </div>
       </aside>
     `;
